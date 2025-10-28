@@ -43,8 +43,11 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
     accept: {
       'image/*': ['.jpg', '.jpeg', '.png', '.gif', '.webp'],
       'video/*': ['.mp4', '.mov', '.avi', '.webm'],
-      'model/*': ['.glb', '.gltf'],
+      'model/*': ['.glb', '.gltf', '.obj', '.fbx'],
       'application/pdf': ['.pdf'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'text/plain': ['.txt'],
     },
   });
 
@@ -56,7 +59,17 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
     formData.append('file', files[0]);
     formData.append('title', title);
     formData.append('description', description);
-    
+
+    if (files[0]) {
+      const extension = files[0].name.split('.').pop()?.toLowerCase() || '';
+      let fileType = 'other';
+      if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)) fileType = 'image';
+      else if (['mp4', 'mov', 'avi', 'webm'].includes(extension)) fileType = 'video';
+      else if (['pdf', 'doc', 'docx', 'txt'].includes(extension)) fileType = 'document';
+      else if (['glb', 'gltf', 'obj', 'fbx'].includes(extension)) fileType = '3d_model';
+      formData.append('file_type', fileType);
+    }
+
     if (tags) {
       const tagArray = tags.split(',').map(tag => tag.trim());
       tagArray.forEach(tag => formData.append('tags', tag));
@@ -82,7 +95,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
   };
 
   return (
-    <DialogRoot open={isOpen} onOpenChange={handleClose}>
+    <DialogRoot open={isOpen} onOpenChange={handleClose} modal={false}>
       <DialogContent maxW="2xl">
         <DialogHeader>
           <DialogTitle>Upload Assets</DialogTitle>
@@ -148,7 +161,13 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
               onChange={(e) => setTags(e.target.value)}
             />
 
-            {uploading && <Progress value={uploadProgress} size="sm" />}
+            {uploading && (
+              <Progress.Root value={uploadProgress}>
+                <Progress.Track>
+                  <Progress.Range />
+                </Progress.Track>
+              </Progress.Root>
+            )}
           </VStack>
         </DialogBody>
 
