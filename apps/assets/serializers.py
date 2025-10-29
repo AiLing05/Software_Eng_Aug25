@@ -29,11 +29,11 @@ class AssetVersionSerializer(serializers.ModelSerializer):
     class Meta:
         model = AssetVersion
         fields = [
-            'id', 'asset', 'version', 'file_url',
+            'id', 'asset_id', 'version', 'file_url',
             'changes', 'created_by', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
-
+    
     def get_file_url(self, obj):
         request = self.context.get('request')
         if obj.file and request:
@@ -105,8 +105,8 @@ class AssetSerializer(serializers.ModelSerializer):
 class AssetUploadSerializer(serializers.ModelSerializer):
     """Serializer for asset upload"""
     file = serializers.FileField()
-    tags = serializers.ListField(
-        child=serializers.CharField(),
+    tag_ids = serializers.ListField(
+        child=serializers.IntegerField(),
         required=False,
         allow_empty=True
     )
@@ -120,24 +120,19 @@ class AssetUploadSerializer(serializers.ModelSerializer):
         model = Asset
         fields = [
             'title', 'description', 'file', 'file_type',
-            'tags', 'metadata_fields'
+            'tag_ids', 'metadata_fields'
         ]
     
     def create(self, validated_data):
-        tag_names = validated_data.pop('tags', [])
+        tag_ids = validated_data.pop('tag_ids', [])
         metadata_fields = validated_data.pop('metadata_fields', [])
         
         # Create asset
         asset = Asset.objects.create(**validated_data)
         
         # Add tags
-        clean_tags = set(tag.strip().lower() for tag in tag_names if tag.strip())
-
-        tag_objects = []
-        for name in clean_tags:
-            tag, _ = Tag.objects.get_or_create(name=name)
-            tag_objects.append(tag)
-        asset.tags.set(tag_objects)
+        if tag_ids:
+            asset.tags.set(Tag.objects.filter(id__in=tag_ids))
         
         # Add metadata
         for field in metadata_fields:
@@ -149,7 +144,7 @@ class AssetUploadSerializer(serializers.ModelSerializer):
             )
         
         return asset
-    
+
 
 class AssetListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for asset list"""
