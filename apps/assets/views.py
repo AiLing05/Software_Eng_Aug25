@@ -31,8 +31,6 @@ class AssetViewSet(viewsets.ModelViewSet):
     search_fields = ['title', 'description', 'tags__name']
     ordering_fields = ['created_at', 'updated_at', 'title', 'file_size']
     ordering = ['-created_at']
-
-    
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -44,51 +42,6 @@ class AssetViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(uploaded_by=self.request.user)
     
-    # Django / DRF example
-    @action(detail=True, methods=['patch'])
-    def update_asset(self, request, pk=None):
-        asset = self.get_object()
-        old_data = {
-            "title": asset.title,
-            "description": asset.description,
-            "tags": [t.name for t in asset.tags.all()]
-        }
-
-        serializer = AssetSerializer(asset, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-
-        # Handle tag names (from frontend)
-        tags = request.data.getlist('tag_names', [])
-        if tags:
-            tag_objs = []
-            for tag_name in tags:
-                tag_obj, _ = Tag.objects.get_or_create(name=tag_name)
-                tag_objs.append(tag_obj)
-            asset.tags.set(tag_objs)
-            asset.save()
-            
-
-        new_data = {
-            "title": asset.title,
-            "description": asset.description,
-            "tags": [t.name for t in asset.tags.all()]
-        }
-
-        # Only create version if something changed
-        if old_data != new_data:
-            asset.version += 1
-            asset.save()
-
-            AssetVersion.objects.create(
-                asset=asset,
-                version=asset.version,
-                changes="Title, description or tags updated",
-                created_by=request.user
-            )
-
-        return Response(serializer.data)
-
     @action(detail=False, methods=['post'], url_path='upload')
     def upload(self, request):
         """Upload a new asset"""
@@ -98,40 +51,10 @@ class AssetViewSet(viewsets.ModelViewSet):
         )
         serializer.is_valid(raise_exception=True)
         asset = serializer.save(uploaded_by=request.user)
-
-        # ✅ Handle tag names manually (from frontend)
-        tag_names = request.data.getlist('tag_names')
-        if tag_names:
-            tag_objects = []
-            for name in tag_names:
-                tag, created = Tag.objects.get_or_create(name=name)
-                tag_objects.append(tag)
-            asset.tags.set(tag_objects)
-
-        # ✅ Return full asset data
+        
+        # Return full asset data
         response_serializer = AssetSerializer(asset, context={'request': request})
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-
-    @action(detail=True, methods=['patch'], url_path='edit')
-    def edit(self, request, pk=None):
-        """Edit asset including tags"""
-        asset = self.get_object()
-        
-        # Update basic fields
-        serializer = AssetSerializer(asset, data=request.data, partial=True, context={'request': request})
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-
-        # ✅ Update tags from frontend
-        tag_names = request.data.getlist('tag_names')
-        if tag_names:
-            tag_objects = []
-            for name in tag_names:
-                tag, created = Tag.objects.get_or_create(name=name)
-                tag_objects.append(tag)
-            asset.tags.set(tag_objects)
-
-        return Response(serializer.data, status=status.HTTP_200_OK)
     
     @action(detail=True, methods=['get'], url_path='download')
     def download(self, request, pk=None):
@@ -231,7 +154,7 @@ class AssetViewSet(viewsets.ModelViewSet):
             context={'request': request}
         )
         return Response(serializer.data)
-
+    
     @action(detail=True, methods=['post'], url_path='restore-version')
     def restore_version(self, request, pk=None):
         """Restore asset to a specific version"""
@@ -258,11 +181,6 @@ class AssetViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(asset, context={'request': request})
         return Response(serializer.data)    
-    
-
-class AssetVersionViewSet(viewsets.ModelViewSet):
-    queryset = AssetVersion.objects.all()
-    serializer_class = AssetVersionSerializer
 
 class TagViewSet(viewsets.ModelViewSet):
     """ViewSet for Tag model"""
@@ -297,3 +215,11 @@ class MetadataFieldViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         serializer.save()
+
+class AssetVersionViewSet(viewsets.ModelViewSet):
+    """ViewSet for AssetVersion model"""
+    queryset = AssetVersion.objects.all()
+    serializer_class = AssetVersionSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
