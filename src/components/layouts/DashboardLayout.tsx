@@ -10,10 +10,6 @@ import {
   HStack,
   Button,
   Text,
-  Menu,
-  AvatarRoot,
-  AvatarImage,
-  AvatarFallback,
 } from '@chakra-ui/react';
 import { useAuth } from '@/lib/hooks/useAuth';
 
@@ -27,8 +23,27 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user } = useAuth();
 
   const handleLogout = async () => {
-    await dispatch(logout());
-    router.push('/login');
+    try {
+      console.log('Starting logout process...');
+      
+      // Calling the logout action
+      const result = await dispatch(logout());
+      console.log('Logout dispatch result:', result);
+      
+      // Make sure you are redirected to the login page
+      console.log('Redirecting to login page...');
+      router.push('/login');
+      router.refresh(); // Force refresh routing
+      
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Jump to the login page even if an error occurs
+      router.push('/login');
+    }
+  };
+
+  const handleProfileClick = () => {
+    router.push('/dashboard/profile');
   };
 
   return (
@@ -37,55 +52,62 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <Flex justify="space-between" align="center">
           <HStack gap={8}>
             <Text
-              fontSize="xl"
+              fontSize="2xl"
               fontWeight="bold"
               cursor="pointer"
               onClick={() => router.push('/dashboard')}
             >
               DAM System
             </Text>
-
-            <HStack gap={4}>
-              <Button variant="ghost" onClick={() => router.push('/dashboard')}>
-                Assets
-              </Button>
-              <Button variant="ghost" onClick={() => router.push('/dashboard/search')}>
-                Search
-              </Button>
-            </HStack>
           </HStack>
 
           <HStack gap={4}>
-            <Menu.Root>
-              <Menu.Trigger asChild>
-                <Button variant="ghost">
-                  <HStack>
-                    <AvatarRoot size="sm">
-                      <AvatarFallback>
-                        {user?.username?.charAt(0).toUpperCase() || '?'}
-                      </AvatarFallback>
-                    </AvatarRoot>
-                    <Box textAlign="left">
-                      <Text fontSize="sm" fontWeight="medium">
-                        {user?.username}
-                      </Text>
-                      <Text fontSize="xs" color="gray.600">
-                        {user?.role}
-                      </Text>
-                    </Box>
-                  </HStack>
-                </Button>
-              </Menu.Trigger>
+            {/* Profile Section - Click on the avatar to enter the Profile */}
+            <HStack 
+              gap={3} 
+              cursor="pointer" 
+              onClick={handleProfileClick}
+              px={4}
+              py={2}
+              borderRadius="lg"
+              _hover={{ bg: 'gray.50' }}
+              transition="all 0.2s"
+            >
+              <Box
+                width="48px"
+                height="48px"
+                borderRadius="full"
+                bg="blue.500"
+                color="white"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                fontSize="lg"
+                fontWeight="bold"
+                flexShrink={0}
+              >
+                {user?.username?.charAt(0).toUpperCase()}
+              </Box>
+              
+              <Box textAlign="left">
+                <Text fontSize="sm" fontWeight="medium">
+                  {user?.username}
+                </Text>
+                <Text fontSize="xs" color="gray.600">
+                  {user?.role}
+                </Text>
+              </Box>
+            </HStack>
 
-              <Menu.Content>
-                <Menu.Item value="profile">Profile</Menu.Item>
-                <Menu.Item value="settings">Settings</Menu.Item>
-                <Menu.Separator />
-                <Menu.Item value="logout" color="red.500" onClick={handleLogout}>
-                  Logout
-                </Menu.Item>
-              </Menu.Content>
-            </Menu.Root>
+            {/* Logout Button */}
+            <Button 
+              variant="outline" 
+              colorScheme="red" 
+              size="sm"
+              onClick={handleLogout}
+            >
+              Logout
+            </Button>
           </HStack>
         </Flex>
       </Box>
