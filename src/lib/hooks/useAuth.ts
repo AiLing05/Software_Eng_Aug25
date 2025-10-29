@@ -2,29 +2,28 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
 
 export const useAuth = () => {
-  const { user, isAuthenticated, loading } = useSelector((state: RootState) => state.auth);
+  const { user, isAuthenticated, loading } = useSelector(
+    (state: RootState) => state.auth
+  );
 
-  const hasPermission = (requiredRole: 'admin' | 'editor' | 'viewer') => {
-    if (!user) return false;
-
-    const roleHierarchy = {
-      admin: 3,
-      editor: 2,
-      viewer: 1,
-    };
-
-    return roleHierarchy[user.role] >= roleHierarchy[requiredRole];
+  // Role check
+  const hasRole = (role: 'admin' | 'editor' | 'viewer') => {
+    return user?.role === role;
   };
 
-  const canEdit = () => hasPermission('editor');
-  const canDelete = () => hasPermission('admin');
-  const canView = () => hasPermission('viewer');
+  // Fine-grained permission controls
+  const canAdd = () => hasRole('admin'); // permission to upload
+  const canEdit = () => hasRole('admin') || hasRole('editor'); // permission to edit
+  const canDelete = () => hasRole('admin'); // permission to delete
+  const canView = () =>
+    ['admin', 'editor', 'viewer'].includes(user?.role || ''); // permission to view
 
   return {
     user,
     isAuthenticated,
     loading,
-    hasPermission,
+    hasRole,
+    canAdd,
     canEdit,
     canDelete,
     canView,
