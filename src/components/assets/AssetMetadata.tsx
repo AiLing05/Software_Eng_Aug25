@@ -13,14 +13,19 @@ import {
  Text,
  IconButton,
  useDisclosure,
- Badge,
- Dialog,
- Progress,
+ DialogRoot,
+ DialogContent,
+ DialogHeader,
+ DialogTitle,
+ DialogBody,
+ DialogFooter,
+ DialogCloseTrigger
 } from '@chakra-ui/react';
-import { useDropzone } from 'react-dropzone';
 import axios from '@/lib/api/axios';
+import CustomFieldsManager, { MetadataField } from '@/components/assets/CustomFieldsManager';
 
 
+//Component property interface
 interface AssetMetadataProps {
  asset: Asset;
  isEditing?: boolean;          
@@ -31,34 +36,41 @@ interface AssetMetadataProps {
 }
 
 
-interface MetadataField {
- id: string;
- key: string;
- value: string;
-}
-
-
 // Icon components
-const AddIcon = (props: any) => (
- <svg width="12" height="12" viewBox="0 0 12 12" fill="none" {...props}>
+const AddIcon = () => (
+ <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
    <path d="M6 1V11M1 6H11" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
  </svg>
 );
 
 
-const DeleteIcon = (props: any) => (
- <svg width="16" height="16" viewBox="0 0 16 16" fill="none" {...props}>
-   <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
- </svg>
-);
-
-
-const ImageIcon = (props: any) => (
- <svg width="16" height="16" viewBox="0 0 16 16" fill="none" {...props}>
+const ImageIcon = () => (
+ <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
    <path d="M14 2H2C1.44772 2 1 2.44772 1 3V13C1 13.5523 1.44772 14 2 14H14C14.5523 14 15 13.5523 15 13V3C15 2.44772 14.5523 2 14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
    <path d="M5.5 7C6.05228 7 6.5 6.55228 6.5 6C6.5 5.44772 6.05228 5 5.5 5C4.94772 5 4.5 5.44772 4.5 6C4.5 6.55228 4.94772 7 5.5 7Z" fill="currentColor"/>
    <path d="M15 10L11 6L2 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
  </svg>
+);
+
+
+// Custom Progress component
+const CustomProgress = ({ value, size, ...props }: any) => (
+ <Box
+   width="full"
+   bg="gray.200"
+   borderRadius="full"
+   overflow="hidden"
+   height={size === 'sm' ? '2' : '3'}
+   {...props}
+ >
+   <Box
+     height="full"
+     bg="blue.500"
+     borderRadius="full"
+     transition="width 0.3s"
+     width={`${value}%`}
+   />
+ </Box>
 );
 
 
@@ -81,15 +93,18 @@ export default function AssetMetadata({
  const [newTag, setNewTag] = useState('');
  const [isSaving, setIsSaving] = useState(false);
  const [saveMessage, setSaveMessage] = useState<{type: 'success' | 'error', message: string} | null>(null);
-  // Custom fields state
+  // Add verification status
+ const [descriptionError, setDescriptionError] = useState('');
+
+
+ // Custom fields state
  const [customFields, setCustomFields] = useState<MetadataField[]>([]);
- const [newCustomField, setNewCustomField] = useState({ key: '', value: '' });
 
 
- // Image update state - Chakra UI v3 useDisclosure
- const { open: isImageModalOpen, onOpen: onImageModalOpen, onClose: onImageModalClose } = useDisclosure();
- const [newImageFile, setNewImageFile] = useState<File | null>(null);
- const [isUploadingImage, setIsUploadingImage] = useState(false);
+ // File update state
+ const { open: isFileModalOpen, onOpen: onFileModalOpen, onClose: onFileModalClose } = useDisclosure();
+ const [newFile, setNewFile] = useState<File | null>(null);
+ const [isUploadingFile, setIsUploadingFile] = useState(false);
  const [uploadProgress, setUploadProgress] = useState(0);
 
 
@@ -110,29 +125,22 @@ export default function AssetMetadata({
 
  // Initialize custom fields from asset metadata
  useEffect(() => {
-   console.log('🔍 DEBUG - Full asset metadata structure:', asset.metadata);
-  
-   if (asset.metadata && Array.isArray(asset.metadata)) {
+   if (asset.metadata && typeof asset.metadata === 'object') {
      const fields: MetadataField[] = [];
-    
-     asset.metadata.forEach((item: any, index: number) => {
-       console.log(`🔍 DEBUG - metadata:`, item);
-      
-       if (item && typeof item === 'object' && item.key && item.value !== undefined) {
-         const fieldId = item.id ? `field-${item.id}` : `field-${index}-${Date.now()}`;
-        
+     Object.entries(asset.metadata).forEach(([key, value]) => {
+       // Skip system fields or fields that are already handled elsewhere
+       if (!['title', 'description', 'tags', 'file_type', 'created_at', 'updated_at'].includes(key)) {
          fields.push({
-           id: fieldId,
-           key: item.key,
-           value: String(item.value)
+           id: `field-${key}-${Date.now()}`,
+           key,
+           value: String(value)
          });
        }
      });
-    
-     console.log('Initialize custom fields:', fields);
+     console.log('Initializing custom fields from asset metadata:', fields);
      setCustomFields(fields);
    } else {
-     console.log('No custom found metadata');
+     console.log('No custom metadata found in asset');
      setCustomFields([]);
    }
  }, [asset.metadata]);
@@ -146,7 +154,7 @@ export default function AssetMetadata({
  }, [externalIsEditing]);
 
 
- 
+ // Clear Save Message
  useEffect(() => {
    if (saveMessage) {
      const timer = setTimeout(() => {
@@ -157,36 +165,35 @@ export default function AssetMetadata({
  }, [saveMessage]);
 
 
- // Dropzone for image upload
- const { getRootProps: getImageRootProps, getInputProps: getImageInputProps, isDragActive: isImageDragActive } = useDropzone({
-   onDrop: (acceptedFiles) => {
-     if (acceptedFiles.length > 0) {
-       setNewImageFile(acceptedFiles[0]);
+ // Handle file selection
+ const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+   if (e.target.files && e.target.files[0]) {
+     const file = e.target.files[0];
+     setNewFile(file);
+     // Auto-set title to file name if title is empty
+     if (!editedTitle) {
+       setEditedTitle(file.name);
      }
-   },
-   accept: {
-     'image/*': ['.jpg', '.jpeg', '.png', '.gif', '.webp']
-   },
-   maxFiles: 1
- });
+   }
+ };
 
 
- // Upload new image
- const handleUploadNewImage = async () => {
-   if (!newImageFile) return;
+ // Upload new file
+ const handleUploadNewFile = async () => {
+   if (!newFile) return;
 
 
-   setIsUploadingImage(true);
+   setIsUploadingFile(true);
    setUploadProgress(0);
 
 
    const formData = new FormData();
-   formData.append('image', newImageFile);
+   formData.append('file', newFile);
    formData.append('asset_id', asset.id.toString());
 
 
    try {
-     const response = await axios.post(`/assets/${asset.id}/update-image/`, formData, {
+     const response = await axios.post(`/assets/${asset.id}/update-file/`, formData, {
        headers: {
          'Content-Type': 'multipart/form-data',
        },
@@ -200,7 +207,7 @@ export default function AssetMetadata({
 
 
      const updatedAsset = response.data.asset;
-     console.log('New image uploaded successfully:', updatedAsset);
+     console.log('New file uploaded successfully:', updatedAsset);
 
 
      // Update parent component with new asset data
@@ -209,32 +216,32 @@ export default function AssetMetadata({
      }
 
 
-     // Update image in parent component
+     // Update file in parent component
      if (onImageUpdate) {
        onImageUpdate(updatedAsset.file_url || updatedAsset.image_url);
      }
 
 
      // Reset and close modal
-     setNewImageFile(null);
+     setNewFile(null);
      setUploadProgress(0);
-     onImageModalClose();
+     onFileModalClose();
 
 
      setSaveMessage({
        type: 'success',
-       message: 'Image updated successfully'
+       message: 'File updated successfully'
      });
 
 
    } catch (error: any) {
-     console.error('Failed to upload new image:', error);
+     console.error('Failed to upload new file:', error);
      setSaveMessage({
        type: 'error',
-       message: 'Failed to update image'
+       message: 'Failed to update file'
      });
    } finally {
-     setIsUploadingImage(false);
+     setIsUploadingFile(false);
    }
  };
 
@@ -263,63 +270,16 @@ export default function AssetMetadata({
  };
 
 
- // Custom fields functions
- const handleAddCustomField = () => {
-   console.log('newCustomField:', newCustomField);
-  
-   if (newCustomField.key.trim() && newCustomField.value.trim()) {
-     const newField: MetadataField = {
-       id: `new-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-       key: newCustomField.key.trim(),
-       value: newCustomField.value.trim()
-     };
-    
-     console.log(' Create a new field:', newField);
-    
-     setCustomFields(prev => {
-       const updatedFields = [...prev, newField];
-       console.log('List of updated fields:', updatedFields);
-       return updatedFields;
-     });
-    
-     setNewCustomField({ key: '', value: '' });
-     console.log('The field added is complete，clear input box');
-   } else {
-     console.log('The key field or value is empty');
-   }
- };
-
-
- const handleRemoveCustomField = (fieldId: string) => {
-   setCustomFields(prev => prev.filter(field => field.id !== fieldId));
- };
-
-
- const handleUpdateCustomField = (fieldId: string, updates: Partial<MetadataField>) => {
-   setCustomFields(prev =>
-     prev.map(field =>
-       field.id === fieldId ? { ...field, ...updates } : field
-     )
-   );
- };
-
-
- const handleCustomFieldKeyPress = (e: React.KeyboardEvent) => {
-   if (e.key === 'Enter') {
-     e.preventDefault();
-     handleAddCustomField();
-   }
- };
-
-
- // Save main info
+ // Save main info - Include custom fields
  const handleSaveMain = async () => {
    setIsSaving(true);
    setSaveMessage(null);
   
    try {
+     // Get or create tag and get the tag ID array
      const tagIds = await getOrCreateTagIds(editedTags);
     
+     // Constructing a custom field object
      const metadataObj: Record<string, string> = {};
      customFields.forEach(field => {
        if (field.key.trim() && field.value.trim()) {
@@ -328,23 +288,31 @@ export default function AssetMetadata({
      });
 
 
+     // Automatic processing: if there are only spaces, convert them to empty strings
+     const finalDescription = editedDescription.trim() === '' ? '' : editedDescription;
+
+
+     // Send data, including custom fields
      const updatedData = {
        title: editedTitle,
-       description: editedDescription,
-       tag_ids: tagIds,  
+       description: editedDescription.trim(),
+       tag_ids: tagIds,
        metadata: metadataObj
      };
 
 
      console.log('AssetMetadata: Saving data to Django:', updatedData);
-     console.log('Tag IDs to update:', tagIds);
+     console.log('Custom fields to save:', metadataObj);
     
      let success = false;
+     let updatedAsset: Asset | null = null;
     
      if (onSave) {
        success = await onSave(updatedData);
      } else {
        success = await saveToBackend(updatedData);
+ 
+       updatedAsset = await fetchUpdatedAsset();
      }
     
      if (success) {
@@ -355,6 +323,16 @@ export default function AssetMetadata({
       
        console.log('Save successful');
       
+      
+       if (updatedAsset && onUpdateAsset) {
+         onUpdateAsset(updatedAsset);
+       }
+      
+
+
+       await refreshTagsDisplay();
+      
+       // Automatically exit edit mode after successful saving
        if (onEditToggle) {
          onEditToggle(false);
        } else {
@@ -375,74 +353,139 @@ export default function AssetMetadata({
      setIsSaving(false);
    }
  };
+ const fetchUpdatedAsset = async (): Promise<Asset> => {
+   try {
+     const response = await axios.get(`/assets/${asset.id}/`);
+     console.log('Fetched updated asset:', response.data);
+     return response.data;
+   } catch (error) {
+     console.error('Failed to fetch updated asset:', error);
+     return asset; 
+   }
+ };
+
+
+ const refreshTagsDisplay = async () => {
+   try {
+     const response = await axios.get(`/assets/${asset.id}/`);
+     const updatedAsset = response.data;
+    
+
+
+     if (updatedAsset.tags && updatedAsset.tags.length > 0) {
+       const tagNames = updatedAsset.tags.map((tag: any) =>
+         typeof tag === 'string' ? tag : tag.name
+       );
+       console.log('Refreshed tags from server:', tagNames);
+       setEditedTags(tagNames);
+     } else {
+       console.log('No tags found after refresh');
+       setEditedTags([]);
+     }
+   } catch (error) {
+     console.error('Failed to refresh tags:', error);
+   }
+ };
+
+
 
 
  const getOrCreateTagIds = async (tagNames: string[]): Promise<number[]> => {
-   console.log('Tags to process:', tagNames);
+   console.log('Starting tag processing for:', tagNames);
   
-   if (tagNames.length === 0) return [];
-  
-   const tagIds: number[] = [];
-  
-   try {
-     const searchResponse = await axios.get('/tags/');
-     const allTags = searchResponse.data.results || searchResponse.data || [];
-     console.log('All available tags:', allTags);
-    
-     for (const tagName of tagNames) {
-       const cleanName = tagName.trim().toLowerCase();
-      
-       if (!cleanName) continue;
-      
-       const existingTag = allTags.find((t: any) =>
-         t.name.toLowerCase() === cleanName
-       );
-      
-       if (existingTag) {
-         console.log(`Found existing tag: "${cleanName}" (ID: ${existingTag.id})`);
-         tagIds.push(existingTag.id);
-       } else {
-         console.warn(`Tag "${cleanName}" does not exist. Please create it first in the database.`);
-       }
-     }
-   } catch (error: any) {
-     console.error('❌ Error fetching tags:', error.message);
+   if (tagNames.length === 0) {
+     console.log('No tags to process');
+     return [];
    }
   
-   console.log('Final tag IDs to update:', tagIds);
+   const tagIds: number[] = [];
+   const uniqueTagNames = [...new Set(tagNames.map(name => name.trim().toLowerCase()))];
+  
+   console.log('Unique tag names:', uniqueTagNames);
+  
+   for (const [index, tagName] of uniqueTagNames.entries()) {
+     console.log(`\nProcessing tag ${index + 1}/${uniqueTagNames.length}: "${tagName}"`);
+    
+     try {
+
+
+       console.log(`Searching for existing tag: "${tagName}"`);
+       const searchResponse = await axios.get('/tags/', {
+         params: { search: tagName, exact_match: true }
+       });
+      
+       const tags = searchResponse.data.results || searchResponse.data || [];
+       console.log(`Search results:`, tags);
+      
+       const existingTag = tags.find((t: any) => t.name.toLowerCase() === tagName);
+      
+       if (existingTag) {
+         console.log(`Found existing tag: ${existingTag.name} (ID: ${existingTag.id})`);
+         tagIds.push(existingTag.id);
+         continue;
+       }
+      
+
+
+       console.log(`Creating new tag: "${tagName}"`);
+       try {
+         const createResponse = await axios.post('/tags/', { name: tagName });
+         console.log(`Created new tag:`, createResponse.data);
+         tagIds.push(createResponse.data.id);
+       } catch (createError: any) {
+         console.error(`Failed to create tag "${tagName}":`, createError.response?.data);
+
+
+       }
+      
+     } catch (error: any) {
+       console.error(`Error processing tag "${tagName}":`, error.message);
+     }
+   }
+  
+   console.log(`Final tag IDs:`, tagIds);
    return tagIds;
  };
 
 
+
+
  const saveToBackend = async (data: any): Promise<boolean> => {
    try {
-     console.log('🔧 Sending PATCH request to:', `/assets/${asset.id}/`);
-     console.log('🔧 Request data:', JSON.stringify(data, null, 2));
+     console.log('[1] Starting saveToBackend with data:', data);
     
-     const response = await axios.patch(`/assets/${asset.id}/`, data, {
-       headers: {
-         'Content-Type': 'application/json',
-       },
-     });
-
-
+     const response = await axios.patch(`/assets/${asset.id}/`, data);
      const updatedAsset = response.data;
-     console.log(' AssetMetadata: Backend response:', updatedAsset);
-     console.log('Updated tags:', updatedAsset.tags);
+    
+     console.log('[2] Backend response received');
+     console.log('[3] Tags in response:', updatedAsset.tags);
+     console.log('[4] Full response:', updatedAsset);
+    
+
+
+     if (updatedAsset.tags && Array.isArray(updatedAsset.tags)) {
+       const newTags = updatedAsset.tags.map((tag: any) => {
+         const tagName = tag?.name || tag;
+         console.log('Processing tag:', tag, '->', tagName);
+         return tagName;
+       });
+      
+       console.log('[5] Final tag names to set:', newTags);
+       setEditedTags(newTags);
+       console.log('[6] editedTags should be updated to:', newTags);
+     } else {
+       console.log('No tags found in response');
+       setEditedTags([]);
+     }
     
      if (onUpdateAsset) {
+       console.log('[7] Calling onUpdateAsset');
        onUpdateAsset(updatedAsset);
      }
     
      return true;
-   } catch (error: any) {
-     console.error('AssetMetadata: Save to backend failed:', error);
-    
-     if (error.response) {
-       console.error('Backend error response:', error.response.data);
-       console.error('Backend error status:', error.response.status);
-     }
-    
+   } catch (error) {
+     console.error('Save failed:', error);
      return false;
    }
  };
@@ -533,10 +576,84 @@ export default function AssetMetadata({
  };
 
 
+ // Update File Dialog
+ const UpdateFileDialog = () => (
+   <DialogRoot open={isFileModalOpen} onOpenChange={onFileModalClose}>
+     <DialogContent maxW="lg">
+       <DialogHeader>
+         <DialogTitle>Update Asset File</DialogTitle>
+         <DialogCloseTrigger />
+       </DialogHeader>
+
+
+       <DialogBody>
+         <VStack gap={4} align="stretch">
+           <Text fontSize="sm" color="gray.600">
+             Upload a new file for this asset. This will replace the current file.
+           </Text>
+          
+           {/* File input for new file */}
+           <Box>
+             <Text fontSize="sm" fontWeight="medium" mb={2}>Select New File</Text>
+             <Input
+               type="file"
+               onChange={handleFileSelect}
+               accept="*/*"
+             />
+           </Box>
+
+
+           {/* Selected file info */}
+           {newFile && (
+             <Box p={3} bg="blue.50" borderRadius="md">
+               <HStack justify="space-between">
+                 <HStack>
+                   <Text fontWeight="medium">{newFile.name}</Text>
+                   <Badge colorScheme="blue">
+                     {formatFileSize(newFile.size)}
+                   </Badge>
+                 </HStack>
+                 <Button size="sm" variant="ghost" onClick={() => setNewFile(null)}>
+                   Remove
+                 </Button>
+               </HStack>
+             </Box>
+           )}
+
+
+           {/* Upload progress */}
+           {isUploadingFile && (
+             <Box>
+               <Text fontSize="sm" mb={2}>Uploading... {uploadProgress}%</Text>
+               <CustomProgress value={uploadProgress} size="sm" />
+             </Box>
+           )}
+         </VStack>
+       </DialogBody>
+
+
+       <DialogFooter>
+         <Button variant="ghost" onClick={onFileModalClose} mr={3}>
+           Cancel
+         </Button>
+         <Button
+           colorScheme="blue"
+           onClick={handleUploadNewFile}
+           disabled={!newFile || isUploadingFile}
+         >
+           {isUploadingFile ? 'Uploading...' : 'Update File'}
+         </Button>
+       </DialogFooter>
+     </DialogContent>
+   </DialogRoot>
+ );
+
+
  // Edit mode form
  if (isEditing) {
    return (
      <VStack gap={6} align="stretch">
+       {/* Save message display */}
        {saveMessage && (
          <Box
            p={3}
@@ -555,17 +672,21 @@ export default function AssetMetadata({
        )}
 
 
-       {/* Change Image Button */}
+       {/* Update File Button */}
        <Box>
-         <Text fontSize="sm" fontWeight="medium" mb={2}>Update Asset</Text>
+         <Text fontSize="sm" fontWeight="medium" mb={2}>Update File</Text>
          <Button
            colorScheme="blue"
            variant="outline"
-           onClick={onImageModalOpen}
+           onClick={onFileModalOpen}
            width="full"
          >
-           <ImageIcon style={{ marginRight: '8px' }} />
-           Choose Asset
+           <HStack gap={2}>
+             <Box as="span" display="flex" alignItems="center">
+               <ImageIcon />
+             </Box>
+             <Text>Choose New File</Text>
+           </HStack>
          </Button>
        </Box>
 
@@ -578,18 +699,7 @@ export default function AssetMetadata({
                value={editedTitle}
                onChange={(e) => setEditedTitle(e.target.value)}
                placeholder="Enter asset title..."
-               borderColor={editedTitle.trim() === '' && editedTitle !== '' ? 'orange.300' : 'gray.200'}
-               _focus={{
-                 borderColor: editedTitle.trim() === '' && editedTitle !== '' ? 'orange.300' : 'blue.500',
-                 boxShadow: editedTitle.trim() === '' && editedTitle !== '' ? '0 0 0 1px orange.300' : '0 0 0 1px blue.500'
-               }}
              />
-            
-             {editedTitle.trim() === '' && editedTitle !== '' && (
-               <Text fontSize="xs" color="orange.500" mt={1}>
-                 ⚠️ You've entered only spaces. Please enter a meaningful title.
-               </Text>
-             )}
            </Box>
 
 
@@ -600,21 +710,21 @@ export default function AssetMetadata({
              <Textarea
                value={editedDescription}
                onChange={(e) => setEditedDescription(e.target.value)}
-               placeholder="Enter description if applicable..."
+               placeholder="Enter asset description (optional)..."
                rows={4}
              />
             
+             {/* Only show a gentle reminder when the user enters a space */}
              {editedDescription.trim() === '' && editedDescription !== '' && (
                <Text fontSize="xs" color="orange.500" mt={1}>
-                 Note: Only spaces entered. This will be saved as empty.
+                 Note: You've entered only spaces. This will be saved as an empty description.
                </Text>
              )}
            </Box>
-
-
            <Box>
              <Text fontSize="sm" fontWeight="medium" mb={2}>Tags</Text>
              <VStack gap={2} align="stretch">
+               {/* Existing tags */}
                <HStack flexWrap="wrap" gap={2}>
                  {editedTags.map((tag, index) => (
                    <CustomTag key={index} onClose={() => handleRemoveTag(tag)}>
@@ -623,6 +733,7 @@ export default function AssetMetadata({
                  ))}
                </HStack>
               
+               {/* Add new tag */}
                <Box>
                  <Input
                    value={newTag}
@@ -637,8 +748,12 @@ export default function AssetMetadata({
                    mt={2}
                    width="full"
                  >
-                   <AddIcon style={{ marginRight: '8px' }} />
-                   Add Tag
+                   <HStack gap={2}>
+                     <Box as="span" display="flex" alignItems="center">
+                       <AddIcon />
+                     </Box>
+                     <Text>Add Tag</Text>
+                   </HStack>
                  </Button>
                </Box>
              </VStack>
@@ -646,70 +761,17 @@ export default function AssetMetadata({
 
 
            {/* Custom Fields Section */}
-           <Box>
-             <Text fontSize="sm" fontWeight="medium" mb={2}>Custom Fields</Text>
-             <VStack gap={3} align="stretch">
-               {customFields.map((field) => (
-                 <HStack key={field.id} gap={2}>
-                   <Input
-                     value={field.key}
-                     onChange={(e) => handleUpdateCustomField(field.id, { key: e.target.value })}
-                     placeholder="Field name"
-                     size="sm"
-                   />
-                   <Input
-                     value={field.value}
-                     onChange={(e) => handleUpdateCustomField(field.id, { value: e.target.value })}
-                     placeholder="Field value"
-                     size="sm"
-                   />
-                   <IconButton
-                     aria-label="Remove field"
-                     size="sm"
-                     onClick={() => handleRemoveCustomField(field.id)}
-                     colorScheme="red"
-                     variant="ghost"
-                   >
-                     <DeleteIcon />
-                   </IconButton>
-                 </HStack>
-               ))}
-              
-               <Box p={3} border="1px dashed" borderColor="gray.300" borderRadius="md">
-                 <Text fontSize="sm" color="gray.600" mb={2}>Add New Field</Text>
-                 <HStack gap={2}>
-                   <Input
-                     value={newCustomField.key}
-                     onChange={(e) => setNewCustomField(prev => ({ ...prev, key: e.target.value }))}
-                     onKeyPress={handleCustomFieldKeyPress}
-                     placeholder="Field name"
-                     size="sm"
-                   />
-                   <Input
-                     value={newCustomField.value}
-                     onChange={(e) => setNewCustomField(prev => ({ ...prev, value: e.target.value }))}
-                     onKeyPress={handleCustomFieldKeyPress}
-                     placeholder="Field value"
-                     size="sm"
-                   />
-                   <Button
-                     size="sm"
-                     onClick={handleAddCustomField}
-                     colorScheme="blue"
-                   >
-                     <AddIcon />
-                   </Button>
-                 </HStack>
-               </Box>
-             </VStack>
-           </Box>
+           <CustomFieldsManager
+             customFields={customFields}
+             onCustomFieldsChange={setCustomFields}
+           />
 
 
            <HStack pt={2}>
              <Button
                colorScheme="blue"
                onClick={handleSaveMain}
-               loading={isSaving}
+               disabled={isSaving}
              >
                {isSaving ? 'Saving...' : 'Save'}
              </Button>
@@ -725,100 +787,14 @@ export default function AssetMetadata({
        </Box>
 
 
-       {/* Update Image Dialog - Chakra UI v3 Dialog */}
-       <Dialog.Root open={isImageModalOpen} onOpenChange={onImageModalClose}>
-         <Dialog.Backdrop />
-         <Dialog.Positioner>
-           <Dialog.Content maxWidth="lg">
-             <Dialog.Header>
-               <Dialog.Title>Update Asset Image</Dialog.Title>
-               <Dialog.CloseTrigger />
-             </Dialog.Header>
-
-
-             <Dialog.Body>
-               <VStack gap={4} align="stretch">
-                 <Text fontSize="sm" color="gray.600">
-                   Upload a new image for this asset. This will replace the current image.
-                 </Text>
-                
-                 <Box
-                   {...getImageRootProps()}
-                   p={8}
-                   border="2px dashed"
-                   borderColor={isImageDragActive ? 'blue.400' : 'gray.300'}
-                   borderRadius="lg"
-                   bg={isImageDragActive ? 'blue.50' : 'gray.50'}
-                   textAlign="center"
-                   cursor="pointer"
-                   transition="all 0.2s"
-                 >
-                   <input {...getImageInputProps()} />
-                   <Text fontSize="lg" mb={2}>
-                     {isImageDragActive ? 'Drop image here' : 'Drag & drop new image here'}
-                   </Text>
-                   <Text fontSize="sm" color="gray.600">
-                     or click to select image
-                   </Text>
-                   <Text fontSize="xs" color="gray.500" mt={2}>
-                     Supported: JPG, JPEG, PNG, GIF, WEBP
-                   </Text>
-                 </Box>
-
-
-                 {newImageFile && (
-                   <Box p={3} bg="blue.50" borderRadius="md">
-                     <HStack justify="space-between">
-                       <HStack>
-                         <Text fontWeight="medium">{newImageFile.name}</Text>
-                         <Badge colorScheme="blue">
-                           {formatFileSize(newImageFile.size)}
-                         </Badge>
-                       </HStack>
-                       <Button size="sm" variant="ghost" onClick={() => setNewImageFile(null)}>
-                         Remove
-                       </Button>
-                     </HStack>
-                   </Box>
-                 )}
-
-
-                 {isUploadingImage && (
-                   <Box>
-                     <Text fontSize="sm" mb={2}>Uploading... {uploadProgress}%</Text>
-                     <Progress.Root value={uploadProgress} size="sm">
-                       <Progress.Track>
-                         <Progress.Range />
-                       </Progress.Track>
-                     </Progress.Root>
-                   </Box>
-                 )}
-               </VStack>
-             </Dialog.Body>
-
-
-             <Dialog.Footer>
-               <Button variant="ghost" onClick={onImageModalClose} mr={3}>
-                 Cancel
-               </Button>
-               <Button
-                 colorScheme="blue"
-                 onClick={handleUploadNewImage}
-                 disabled={!newImageFile || isUploadingImage}
-                 loading={isUploadingImage}
-               >
-                 Update Image
-               </Button>
-             </Dialog.Footer>
-           </Dialog.Content>
-         </Dialog.Positioner>
-       </Dialog.Root>
+       {/* Update File Dialog */}
+       <UpdateFileDialog />
      </VStack>
    );
  }
 
 
- // View mode
+ // View mode - show basic info and custom fields
  return (
    <VStack gap={3} align="stretch">
      <Box>
@@ -827,21 +803,10 @@ export default function AssetMetadata({
      </Box>
     
      <Box>
-       <Text fontSize="sm" fontWeight="medium" mb={2}>
-         Description (If has)
+       <Text fontSize="sm" color="gray.600" mb={1}>Description</Text>
+       <Text color={asset.description ? 'inherit' : 'gray.500'}>
+         {asset.description || 'No description'}
        </Text>
-       <Textarea
-         value={editedDescription}
-         onChange={(e) => setEditedDescription(e.target.value)}
-         placeholder="Enter description if applicable..."
-         rows={4}
-       />
-      
-       {editedDescription.trim() === '' && editedDescription !== '' && (
-         <Text fontSize="xs" color="orange.500" mt={1}>
-           Note: Only spaces entered. This will be saved as empty.
-         </Text>
-       )}
      </Box>
     
      <Box>
@@ -860,6 +825,7 @@ export default function AssetMetadata({
      </Box>
 
 
+     {/* Custom Fields Display */}
      {customFields.length > 0 && (
        <Box>
          <Text fontSize="sm" color="gray.600" mb={1}>Custom Fields</Text>
@@ -875,6 +841,7 @@ export default function AssetMetadata({
      )}
 
 
+     {/* Edit Button */}
      <Button
        variant="outline"
        onClick={() => {
@@ -898,3 +865,21 @@ const useAuth = () => {
    canEdit: () => true
  };
 };
+
+
+// Badge component
+const Badge = ({ children, colorScheme, fontSize, ...props }: any) => (
+ <Box
+   display="inline-block"
+   px={2}
+   py={1}
+   borderRadius="md"
+   bg={`${colorScheme}.100`}
+   color={`${colorScheme}.800`}
+   fontSize={fontSize || 'xs'}
+   fontWeight="medium"
+   {...props}
+ >
+   {children}
+ </Box>
+);
