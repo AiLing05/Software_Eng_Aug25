@@ -1,6 +1,5 @@
 "use client";
 
-
 import { useState, useEffect } from 'react';
 import { Asset } from '@/lib/types';
 import {
@@ -287,10 +286,8 @@ export default function AssetMetadata({
        }
      });
 
-
      // Automatic processing: if there are only spaces, convert them to empty strings
      const finalDescription = editedDescription.trim() === '' ? '' : editedDescription;
-
 
      // Send data, including custom fields
      const updatedData = {
@@ -299,7 +296,6 @@ export default function AssetMetadata({
        tag_ids: tagIds,
        metadata: metadataObj
      };
-
 
      console.log('AssetMetadata: Saving data to Django:', updatedData);
      console.log('Custom fields to save:', metadataObj);
@@ -323,13 +319,10 @@ export default function AssetMetadata({
       
        console.log('Save successful');
       
-      
        if (updatedAsset && onUpdateAsset) {
          onUpdateAsset(updatedAsset);
        }
       
-
-
        await refreshTagsDisplay();
       
        // Automatically exit edit mode after successful saving
@@ -353,6 +346,7 @@ export default function AssetMetadata({
      setIsSaving(false);
    }
  };
+
  const fetchUpdatedAsset = async (): Promise<Asset> => {
    try {
      const response = await axios.get(`/assets/${asset.id}/`);
@@ -364,14 +358,11 @@ export default function AssetMetadata({
    }
  };
 
-
  const refreshTagsDisplay = async () => {
    try {
      const response = await axios.get(`/assets/${asset.id}/`);
      const updatedAsset = response.data;
     
-
-
      if (updatedAsset.tags && updatedAsset.tags.length > 0) {
        const tagNames = updatedAsset.tags.map((tag: any) =>
          typeof tag === 'string' ? tag : tag.name
@@ -386,9 +377,6 @@ export default function AssetMetadata({
      console.error('Failed to refresh tags:', error);
    }
  };
-
-
-
 
  const getOrCreateTagIds = async (tagNames: string[]): Promise<number[]> => {
    console.log('Starting tag processing for:', tagNames);
@@ -408,7 +396,6 @@ export default function AssetMetadata({
     
      try {
 
-
        console.log(`Searching for existing tag: "${tagName}"`);
        const searchResponse = await axios.get('/tags/', {
          params: { search: tagName, exact_match: true }
@@ -425,8 +412,6 @@ export default function AssetMetadata({
          continue;
        }
       
-
-
        console.log(`Creating new tag: "${tagName}"`);
        try {
          const createResponse = await axios.post('/tags/', { name: tagName });
@@ -446,9 +431,6 @@ export default function AssetMetadata({
    console.log(`Final tag IDs:`, tagIds);
    return tagIds;
  };
-
-
-
 
  const saveToBackend = async (data: any): Promise<boolean> => {
    try {
@@ -529,7 +511,6 @@ export default function AssetMetadata({
    }
  };
 
-
  // Custom Tag component
  const CustomTag = ({ children, onClose, ...props }: any) => (
    <Box
@@ -565,7 +546,6 @@ export default function AssetMetadata({
    </Box>
  );
 
-
  // Format file size
  const formatFileSize = (bytes: number) => {
    if (bytes === 0) return '0 Bytes';
@@ -575,13 +555,12 @@ export default function AssetMetadata({
    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
  };
 
-
  // Update File Dialog
  const UpdateFileDialog = () => (
    <DialogRoot open={isFileModalOpen} onOpenChange={onFileModalClose}>
      <DialogContent maxW="lg">
        <DialogHeader>
-         <DialogTitle>Update Asset File</DialogTitle>
+         <DialogTitle>Update New File</DialogTitle>
          <DialogCloseTrigger />
        </DialogHeader>
 
@@ -674,7 +653,7 @@ export default function AssetMetadata({
 
        {/* Update File Button */}
        <Box>
-         <Text fontSize="sm" fontWeight="medium" mb={2}>Update File</Text>
+         <Text fontSize="sm" fontWeight="medium" mb={2}>Update New File</Text>
          <Button
            colorScheme="blue"
            variant="outline"
@@ -859,13 +838,11 @@ export default function AssetMetadata({
  );
 }
 
-
 const useAuth = () => {
  return {
    canEdit: () => true
  };
 };
-
 
 // Badge component
 const Badge = ({ children, colorScheme, fontSize, ...props }: any) => (
