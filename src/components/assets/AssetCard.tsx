@@ -12,21 +12,15 @@ interface AssetCardProps {
 export default function AssetCard({ asset }: AssetCardProps) {
   const router = useRouter();
 
-  const getFileIcon = (filename?: string) => {
-    if (!filename) return '📄';
-    const extension = filename.split('.').pop()?.toLowerCase() || '';
-    const videoExts = ['mp4', 'mov', 'avi', 'webm'];
-    const modelExts = ['glb', 'gltf', 'obj', 'fbx'];
-    const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
-
-    if (videoExts.includes(extension)) return '🎥';
-    if (modelExts.includes(extension)) return '🧩'; 
-    if (imageExts.includes(extension)) return '🖼️';
-    return '📄';
+  const getBadgeColor = () => {
+    switch (asset.file_type) {
+      case 'image': return 'green';
+      case 'video': return 'red';
+      case '3d_model': return 'purple';
+      case 'document': return 'blue';
+      default: return 'gray';
+    }
   };
-
-  const extension = asset.file ? asset.file.split('.').pop()?.toLowerCase() : 'unknown';
-  const versionLabel = asset.version ? `v${asset.version}` : 'v1.0';
 
   return (
     <Box
@@ -37,40 +31,47 @@ export default function AssetCard({ asset }: AssetCardProps) {
       transition="all 0.2s"
       _hover={{ shadow: 'md', transform: 'translateY(-4px)' }}
       cursor="pointer"
-      onClick={() => router.push(`/dashboard/assets/${asset.id}`)}
+      onClick={() => router.push(/dashboard/assets/${asset.id})}
     >
       <Box position="relative" h="200px" bg="gray.100">
-        {asset.file && asset.file_type === 'image' ? (
+        {asset.thumbnail_url ? (
           <Image
-            src={asset.file}
-            alt={asset.name}
+            src={asset.thumbnail_url}
+            alt={asset.title}
             objectFit="cover"
             w="full"
             h="full"
           />
         ) : (
           <Box display="flex" alignItems="center" justifyContent="center" h="full" fontSize="4xl">
-            {getFileIcon(asset.file)}
+            {asset.file_type === 'image' && '🖼'}
+            {asset.file_type === 'video' && '🎥'}
+            {asset.file_type === '3d_model' && '🎨'}
+            {asset.file_type === 'document' && '📄'}
+            {!asset.file_type && '📦'}
           </Box>
         )}
-        <Badge position="absolute" top={2} right={2} colorScheme="blue">
-          {extension}
+        <Badge
+          position="absolute"
+          top={2}
+          right={2}
+          colorScheme={getBadgeColor()}
+        >
+          {asset.file_extension.toLowerCase().replace('.', '')}
         </Badge>
       </Box>
 
       <VStack p={4} align="stretch" gap={2}>
-        <Text fontWeight="semibold" noOfLines={1}>{asset.name}</Text>
-        <Text fontSize="sm" color="gray.600" noOfLines={2}>
+        <Text fontWeight="semibold" lineClamp={1}>{asset.title}</Text>
+        <Text fontSize="sm" color="gray.600" lineClamp={2}>
           {asset.description || 'No description'}
         </Text>
         <HStack justify="space-between" pt={2}>
           <Text fontSize="xs" color="gray.500">
-            {asset.uploaded_at
-              ? format(new Date(asset.uploaded_at), 'MMM dd, yyyy')
-              : 'Unknown date'}
+            {format(new Date(asset.created_at), 'MMM dd, yyyy')}
           </Text>
           <Text fontSize="xs" color="gray.500">
-            {versionLabel}
+            v{asset.version}
           </Text>
         </HStack>
       </VStack>
