@@ -14,7 +14,7 @@ export default function VideoPreview({ url }: VideoPreviewProps) {
         style={{ maxWidth: '100%', maxHeight: '600px' }}
         src={url}
       >
-        Your browser does not support the video tag.
+      Your browser does not support HTML5 video playback.
       </video>
     </Box>
   );
