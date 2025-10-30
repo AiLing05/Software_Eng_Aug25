@@ -33,6 +33,7 @@ export default function DashboardPage() {
     });
   }, [assets]);
 
+  //Tag Management
   // Calculate the usage of all tags
   const tagUsageData = useMemo(() => {
     const tagUsageCount: { [key: number]: number } = {};
