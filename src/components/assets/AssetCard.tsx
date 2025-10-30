@@ -36,7 +36,7 @@ export default function AssetCard({ asset }: AssetCardProps) {
       <Box position="relative" h="200px" bg="gray.100">
         {asset.thumbnail_url ? (
           <Image
-            src={asset.thumbnail_url}
+            src={${asset.thumbnail_url}?v=${asset.updated_at}}
             alt={asset.title}
             objectFit="cover"
             w="full"
@@ -63,9 +63,27 @@ export default function AssetCard({ asset }: AssetCardProps) {
 
       <VStack p={4} align="stretch" gap={2}>
         <Text fontWeight="semibold" lineClamp={1}>{asset.title}</Text>
-        <Text fontSize="sm" color="gray.600" lineClamp={2}>
-          {asset.description || 'No description'}
-        </Text>
+        <Box display="flex" flexWrap="wrap" gap="4px">
+          {asset.tags && asset.tags.length > 0 ? (
+            asset.tags.map((tag) => (
+              <Box
+                key={tag.id}
+                bg={tag.color || 'gray.100'}
+                px="6px"
+                py="2px"
+                borderRadius="md"
+                fontSize="xs"
+                color={tag.color ? 'white' : 'gray.700'}
+              >
+                {tag.name.toUpperCase()}
+              </Box>
+            ))
+          ) : (
+            <Text fontSize="sm" color="gray.500">
+              No tags
+            </Text>
+          )}
+        </Box>
         <HStack justify="space-between" pt={2}>
           <Text fontSize="xs" color="gray.500">
             {format(new Date(asset.created_at), 'MMM dd, yyyy')}
