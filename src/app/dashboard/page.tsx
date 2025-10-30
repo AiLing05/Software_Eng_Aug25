@@ -84,7 +84,8 @@ export default function DashboardPage() {
               </Button>
             )}
           </HStack>
-
+          
+            {/*filter by date,type and tags*/}
           {/* SearchBar - contains all filter functionality */}
           <HStack gap={4} mb={6}>
             <Box flex={1}>
@@ -97,10 +98,11 @@ export default function DashboardPage() {
           </HStack>
         </Box>
 
+          {/* Change sort from newest first to latest, oldest first to oldest */}
         {/* Shows current sort status */}
         <Box mb={4}>
           <Text fontSize="sm" color="gray.600">
-            Showing {uniqueAssets.length} assets • Sorted by: {sortBy === 'newest' ? 'Newest First' : 'Oldest First'} {loading && '(loading...)'}
+            Showing {uniqueAssets.length} assets • Sorted by: {sortBy === 'newest' ? 'Latest' : 'Oldest'} {loading && '(loading...)'}
           </Text>
         </Box>
 
