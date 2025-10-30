@@ -54,29 +54,27 @@ def compare_metadata(old_metadata, new_metadata):
        old_value = old.get(key)
        new_value = new.get(key)
       
-       print(f"[BACKEND DEBUG] Comparing key '{key}':")
+       print(f" [BACKEND DEBUG] Comparing key '{key}':")
        print(f"  Old value: '{old_value}'")
        print(f"  New value: '{new_value}'")
       
        if key not in old:
            changes_list.append(f"{key}: (none) → {new_value}")
-           print(f"New field detected: {key}: (none) → {new_value}")
+           print(f"  New field detected: {key}: (none) → {new_value}")
       
-
-
        elif key not in new:
            changes_list.append(f"{key}: {old_value} → (removed)")
-           print(f"Deleted field detected: {key}: {old_value} → (removed)")
+           print(f"  Deleted field detected: {key}: {old_value} → (removed)")
       
        elif old_value != new_value:
            changes_list.append(f"{key}: {old_value} → (removed)")
            changes_list.append(f"{key}: (none) → {new_value}")
-           print(f"Value changed: {key}: {old_value} → {new_value}")
+           print(f"  Value changed: {key}: {old_value} → {new_value}")
       
        else:
-           print(f"No change for key '{key}'")
+           print(f"  No change for key '{key}'")
   
-   print(f"[BACKEND DEBUG] Total changes found: {len(changes_list)}")
+   print(f" [BACKEND DEBUG] Total changes found: {len(changes_list)}")
    print(f"  Changes list: {changes_list}")
    return changes_list
 
@@ -150,30 +148,39 @@ class AssetViewSet(viewsets.ModelViewSet):
        """
        logger.info(f"Update asset request for asset {pk}")
        logger.debug(f"Raw request data keys: {list(request.data.keys())}")
+       logger.debug(f"Request FILES keys: {list(request.FILES.keys())}")
+      
        print("[DEBUG] update_asset() called!")
        print("Full request data:", request.data)
+       print("Request FILES:", dict(request.FILES))
 
 
        # Retrieve the target asset
        asset = self.get_object()
 
 
-       # Create snapshot for versioning comparison
        old_data = {
            "title": asset.title,
            "description": asset.description,
            "tags": [t.name for t in asset.tags.all()],
            "metadata_json": asset.metadata_json,
        }
+       print(f"[DEBUG] Old data snapshot: {old_data}")
 
 
-       # Step 1: Handle file upload if present
+       # Step 1: Handle file upload if present - 添加更多调试信息
        new_file = request.FILES.get("file") or request.FILES.get("image")
        if new_file:
-           logger.info(f"New file uploaded: {new_file.name}, type={new_file.content_type}")
+           logger.info(f"New file uploaded: {new_file.name}, type={new_file.content_type}, size={new_file.size}")
+           print(f"[DEBUG] File received: {new_file.name}, size: {new_file.size} bytes")
+          
            asset.file = new_file
-           asset.file_type = new_file.content_type.split("/")[0]  # Extract type (image/video/etc)
+           asset.file_type = new_file.content_type.split("/")[0]
            asset.save(update_fields=["file", "file_type"])
+           print(f"[DEBUG] File saved to asset: {asset.file.name}")
+       else:
+           print("[DEBUG] No file found in request.FILES")
+           print(f"[DEBUG] Available FILES keys: {list(request.FILES.keys())}")
 
 
        # Step 2: Update basic text fields using serializer
@@ -235,8 +242,8 @@ class AssetViewSet(viewsets.ModelViewSet):
 
 
        # Check individual field changes with detailed logging
-       title_changed = old_data["title"] != new_data["title"]
-       description_changed = old_data["description"] != new_data["description"]
+       title_changed = old_data['title'] != new_data["title"]
+       description_changed = old_data['description'] != new_data["description"]
        tags_changed = old_data["tags"] != new_data["tags"]
        metadata_changed = old_data["metadata_json"] != new_data["metadata_json"]
 
@@ -260,12 +267,13 @@ class AssetViewSet(viewsets.ModelViewSet):
        should_create_version = title_changed or description_changed or tags_changed or metadata_changed or file_changed
 
 
-       print(f" [DEBUG] Should create version: {should_create_version}")
+       print(f"[DEBUG] Should create version: {should_create_version}")
 
 
        if should_create_version:
            new_version_number = (asset.version or 0) + 1
           
+           # Build detailed changes message with arrows
            changes_list = []
            if title_changed:
                changes_list.append(f"Title: {old_data['title']} → {new_data['title']}")
@@ -301,7 +309,7 @@ class AssetViewSet(viewsets.ModelViewSet):
            try:
                version = AssetVersion.objects.create(
                    asset=asset,
-                   version=new_version_number,
+                   version=new_version_number, 
                    file=asset.file,
                    changes=changes_text, 
                    created_by=request.user
@@ -351,8 +359,8 @@ class AssetViewSet(viewsets.ModelViewSet):
        """
        Upload a new asset with file and metadata.
        """
-       logger.info(f" Upload request - Data: {request.data}")
-       logger.info(f" Files: {request.FILES}")
+       logger.info(f"Upload request - Data: {request.data}")
+       logger.info(f"Files: {request.FILES}")
 
 
        serializer = AssetUploadSerializer(
@@ -391,7 +399,7 @@ class AssetViewSet(viewsets.ModelViewSet):
       
        changes_text = "\n".join(changes_list)
       
-       print(f" [DEBUG] Creating version 1 with complete asset info:")
+       print(f"[DEBUG] Creating version 1 with complete asset info:")
        print(f"  Changes: {changes_text}")
 
 
@@ -402,7 +410,7 @@ class AssetViewSet(viewsets.ModelViewSet):
        AssetVersion.objects.create(
            asset=asset,
            version=1,
-           file=file_instance,  
+           file=file_instance, 
            changes=changes_text,
            created_by=request.user
        )
@@ -418,15 +426,14 @@ class AssetViewSet(viewsets.ModelViewSet):
                    from PIL import Image
                    with Image.open(file_path) as img:
                        width, height = img.size
-                       logger.info(f" Image size extracted successfully: {width} x {height}")
-                       # Update metadata_json
+                       logger.info(f"📏 Image size extracted successfully: {width} x {height}")
                        if not asset.metadata_json or not isinstance(asset.metadata_json, dict):
                            asset.metadata_json = {}
                        from .models import MetadataField
                        MetadataField.objects.create(asset=asset, key="Dimensions", value=f"{width}x{height}")
                        logger.info(f"Technical metadata saved: {width}x{height}")
        except Exception as e:
-           logger.error(f"Failed to extract image size on upload: {e}")
+           logger.error(f" Failed to extract image size on upload: {e}")
 
 
        # Handle tag names from upload
@@ -640,8 +647,8 @@ class AssetViewSet(viewsets.ModelViewSet):
        Returns:
            Response with updated asset data
        """
-       logger.info(f" Image update request for asset {pk}")
-       logger.info(f" Files: {request.FILES}")
+       logger.info(f"Image update request for asset {pk}")
+       logger.info(f"Files: {request.FILES}")
 
 
        asset = self.get_object()
