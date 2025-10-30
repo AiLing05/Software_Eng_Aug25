@@ -33,24 +33,6 @@ export default function DashboardPage() {
     });
   }, [assets]);
 
-  //Tag Management
-  // Calculate the usage of all tags
-  const tagUsageData = useMemo(() => {
-    const tagUsageCount: { [key: number]: number } = {};
-    
-    if (assets && assets.length > 0) {
-      assets.forEach(asset => {
-        if (asset.tags && Array.isArray(asset.tags)) {
-          asset.tags.forEach((tag: any) => {
-            tagUsageCount[tag.id] = (tagUsageCount[tag.id] || 0) + 1;
-          });
-        }
-      });
-    }
-    
-    return tagUsageCount;
-  }, [assets]); 
-
   // Debug: log assets when they change
   useEffect(() => {
     console.log('Assets updated:', assets);
@@ -67,6 +49,8 @@ export default function DashboardPage() {
   const handleSortChange = (newSort: string) => {
     console.log('Sort changed to:', newSort);
     setSortBy(newSort);
+    // You might want to trigger a new search/fetch here with the sort parameter
+    // This depends on how your backend handles sorting
   };
 
   const handleUploadClick = () => {
@@ -85,25 +69,22 @@ export default function DashboardPage() {
               </Button>
             )}
           </HStack>
-          
-            {/*filter by date,type and tags*/}
-          {/* SearchBar - contains all filter functionality */}
+
           <HStack gap={4} mb={6}>
             <Box flex={1}>
+              {/* SearchBar with sorting functionality */}
               <SearchBar 
                 sortBy={sortBy}
                 onSortChange={handleSortChange}
-                tagUsageData={tagUsageData}
               />
             </Box>
           </HStack>
         </Box>
 
-          {/* Change sort from newest first to latest, oldest first to oldest */}
-        {/* Shows current sort status */}
+        {/* Debug info - shows current sort status */}
         <Box mb={4}>
           <Text fontSize="sm" color="gray.600">
-            Showing {uniqueAssets.length} assets • Sorted by: {sortBy === 'newest' ? 'Latest' : 'Oldest'} {loading && '(loading...)'}
+            Showing {uniqueAssets.length} assets • Sorted by: {sortBy === 'newest' ? 'Newest First' : 'Oldest First'} {loading && '(loading...)'}
           </Text>
         </Box>
 
