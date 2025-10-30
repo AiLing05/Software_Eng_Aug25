@@ -66,28 +66,27 @@ export default function AssetCard({ asset }: AssetCardProps) {
         <Box display="flex" flexWrap="wrap" gap="4px" alignItems="center">
           {asset.tags && asset.tags.length > 0 ? (
             <>
+              {/* show 3 tag */}            
               {asset.tags.slice(0, 3).map((tag) => (
-                <Box
-                  key={tag.id}
-                  bg="gray.100"
-                  color="gray.800"
-                  px={3}
-                  py={1}
-                  borderRadius="full"
-                  fontSize="xs"
-                  fontWeight="semibold"
-                  cursor="default"
-                  transition="all 0.2s"
-                >
-                  {tag.name.toUpperCase()}
-                </Box>
+              <Box
+                key={tag.id}
+                bg={tag.color || 'gray.100'}
+                px="6px"
+                py="2px"
+                borderRadius="md"
+                fontSize="xs"
+                color={tag.color ? 'white' : 'gray.700'}
+              >
+                {tag.name.toUpperCase()}
+              </Box>
               ))}
+              {/* If more than 3, show the remaining count  */}
               {asset.tags.length > 3 && (
                 <Text fontSize="xs" color="gray.500">
                   +{asset.tags.length - 3}
                 </Text>
               )}
-            </>
+            </>              
           ) : (
             <Text fontSize="sm" color="gray.500">
               No tags
@@ -99,7 +98,7 @@ export default function AssetCard({ asset }: AssetCardProps) {
             {format(new Date(asset.created_at), 'MMM dd, yyyy')}
           </Text>
           <Text fontSize="xs" color="gray.500">
-            V{asset.version}
+            v{asset.version}
           </Text>
         </HStack>
       </VStack>
