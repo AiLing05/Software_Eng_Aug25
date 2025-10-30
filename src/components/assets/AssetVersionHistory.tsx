@@ -5,7 +5,7 @@ import { Box, VStack, HStack, Text, Badge, Link } from '@chakra-ui/react';
 import { format } from 'date-fns';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '@/lib/store';
-import { restoreAssetVersion, fetchAssetVersions, fetchAssetById } from '@/lib/store/slices/assetsSlice';
+import { fetchAssetVersions, fetchAssetById } from '@/lib/store/slices/assetsSlice';
 
 interface AssetVersionHistoryProps {
   versions: AssetVersion[];
@@ -13,25 +13,19 @@ interface AssetVersionHistoryProps {
 }
 
 export default function AssetVersionHistory({ versions, assetId }: AssetVersionHistoryProps) {
-  const dispatch = useDispatch<AppDispatch>();
-
-  // Function to restore asset to a specific version
-  const handleRestore = async (versionId: number) => {
-    if (!confirm('Are you sure you want to restore this version?')) return;
-
-    try {
-      // Call Redux action to restore version
-      await dispatch(restoreAssetVersion({ assetId, versionId }));
-
-      // Re-fetch asset and versions to refresh UI
-      await dispatch(fetchAssetById(assetId));
-      await dispatch(fetchAssetVersions(assetId));
-
-      alert('Successfully restored to this version');
-    } catch (error) {
-      console.error('Failed to restore version:', error);
-    }
-  };
+  console.log('=== VERSIONS DATA ===');
+  console.log('All versions:', versions);
+  
+  // Check each version individually
+  versions.forEach((version, index) => {
+    console.log(`Version ${version.version}:`, {
+      id: version.id,
+      version: version.version,
+      changes: version.changes,  // ← This should show the detailed changes
+      file_url: version.file_url,
+      created_at: version.created_at
+    });
+  });
 
   if (!versions || versions.length === 0) {
     return (
@@ -64,18 +58,37 @@ export default function AssetVersionHistory({ versions, assetId }: AssetVersionH
               </Text>
             </HStack>
 
-            <Text fontSize="sm" whiteSpace="pre-wrap" mb={2}>
-              {version.changes || 'No changes noted'}
-            </Text>
-
-            <Link
-              fontSize="sm"
-              color="blue.500"
-              cursor="pointer"
-              onClick={() => handleRestore(version.id)}
-            >
-              Click to restore this version
-            </Link>
+      {/* Render changes with clickable file links */}
+      <VStack align="stretch" gap={1} mb={2}>
+        {version.changes.split('\n').map((change, index) => {
+            if (change.includes('File:') && version.file_url) {
+                const parts = change.split(' → ');
+                const oldFilePart = parts[0].replace('File: ', '');
+                const newFilePart = parts[1] || '';
+                
+                return (
+                    <HStack key={index} align="baseline">
+                        <Text fontSize="sm" fontWeight="medium">File:</Text>
+                        <Link 
+                            href={version.file_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            color="blue.500"
+                            fontSize="sm"
+                        >
+                            {oldFilePart}
+                        </Link>
+                        <Text fontSize="sm">→ {newFilePart}</Text>
+                    </HStack>
+                );
+            }
+                return (
+                    <Text key={index} fontSize="sm" whiteSpace="pre-wrap">
+                        {change}
+                    </Text>
+                  );
+              })}
+            </VStack>
           </Box>
         ))}
     </VStack>
