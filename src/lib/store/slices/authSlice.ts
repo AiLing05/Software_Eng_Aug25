@@ -55,6 +55,19 @@ export const fetchUserProfile = createAsyncThunk(
   }
 );
 
+// Update user profile
+export const updateProfile = createAsyncThunk(
+  'auth/updateProfile',
+  async (profileData: Partial<User>, { rejectWithValue }) => {
+    try {
+      const response = await axios.patch(API_ENDPOINTS.USER_PROFILE, profileData);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to update profile');
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -65,6 +78,14 @@ const authSlice = createSlice({
     setUser: (state, action: PayloadAction<User>) => {
       state.user = action.payload;
       state.isAuthenticated = true;
+    },
+    // Clear user status (for logout)
+    clearUser: (state) => {
+      state.user = null;
+      state.token = null;
+      state.isAuthenticated = false;
+      state.loading = false;
+      state.error = null;
     },
   },
   extraReducers: (builder) => {
@@ -90,6 +111,13 @@ const authSlice = createSlice({
         state.token = null;
         state.isAuthenticated = false;
       })
+      .addCase(logout.rejected, (state, action) => {
+        // Clear local state even if the API call fails
+        state.user = null;
+        state.token = null;
+        state.isAuthenticated = false;
+        state.error = action.payload as string;
+      })
       // Fetch user profile
       .addCase(fetchUserProfile.pending, (state) => {
         state.loading = true;
@@ -102,9 +130,35 @@ const authSlice = createSlice({
       .addCase(fetchUserProfile.rejected, (state) => {
         state.loading = false;
         state.isAuthenticated = false;
+      })
+      // Update profile
+      .addCase(updateProfile.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateProfile.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = action.payload; // Update user information
+      })
+      .addCase(updateProfile.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
       });
   },
 });
 
-export const { clearError, setUser } = authSlice.actions;
+export const { clearError, setUser, clearUser } = authSlice.actions;
 export default authSlice.reducer;
+
+export const fetchUserAssets = createAsyncThunk(
+  'assets/fetchUserAssets',
+  async (userId: number, { rejectWithValue }) => {
+    try {
+      const response = await axios.get(`/assets/?uploaded_by=${userId}`);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch user assets');
+    }
+  }
+);
+
