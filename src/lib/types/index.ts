@@ -39,6 +39,29 @@ export interface Asset {
   metadata: MetadataField[];
   version: number;
   status: 'active' | 'archived';
+  category?: string;
+  technical_metadata?: {
+    file_name?: string;
+    file_type?: string;
+    duration?: string;
+    resolution?: string;
+    frame_rate?: string;
+    bitrate?: string;
+    codec?: string;
+    audio_channels?: string;
+    aspect_ratio?: string;
+    color_space?: string;
+    color_mode?: string;
+    format?: string;
+    dpi?: string;
+    page_count?: string;
+    author?: string;
+    sample_rate?: string;
+    channels?: string;
+    width?: number;
+    height?: number;
+    [key: string]: any;
+  };
 }
 
 export interface Tag {
@@ -62,6 +85,11 @@ export interface AssetVersion {
   created_at: string;
   created_by: User;
   changes: string;
+  title?: string;
+  description?: string;
+  tags?: { id: number; name: string }[];
+  metadata_json?: Record<string, any>;
+  tags_json?: string;
 }
 
 export interface SearchFilters {
