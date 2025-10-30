@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/lib/store';
 import { fetchAssets } from '@/lib/store/slices/assetsSlice';
@@ -16,9 +16,41 @@ export default function DashboardPage() {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const { items: assets, loading, pagination } = useSelector((state: RootState) => state.assets);
+  const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState('newest');
   const { canAdd } = useAuth();
 
+  const uniqueAssets = useMemo(() => {
+    if (!assets || !Array.isArray(assets)) return [];
+    
+    const seen = new Set();
+    return assets.filter(asset => {
+      if (seen.has(asset.id)) {
+        return false;
+      }
+      seen.add(asset.id);
+      return true;
+    });
+  }, [assets]);
+
+  // Calculate the usage of all tags
+  const tagUsageData = useMemo(() => {
+    const tagUsageCount: { [key: number]: number } = {};
+    
+    if (assets && assets.length > 0) {
+      assets.forEach(asset => {
+        if (asset.tags && Array.isArray(asset.tags)) {
+          asset.tags.forEach((tag: any) => {
+            tagUsageCount[tag.id] = (tagUsageCount[tag.id] || 0) + 1;
+          });
+        }
+      });
+    }
+    
+    return tagUsageCount;
+  }, [assets]); 
+
+  // Debug: log assets when they change
   useEffect(() => {
     console.log('Assets updated:', assets);
     console.log('Loading state:', loading);
@@ -30,6 +62,7 @@ export default function DashboardPage() {
     dispatch(fetchTags());
   }, [dispatch]);
 
+  // Handle sort change
   const handleSortChange = (newSort: string) => {
     console.log('Sort changed to:', newSort);
     setSortBy(newSort);
@@ -52,18 +85,22 @@ export default function DashboardPage() {
             )}
           </HStack>
 
-          <Box mb={6}>
-            <SearchBar 
-              sortBy={sortBy}
-              onSortChange={handleSortChange}
-            />
-          </Box>
+          {/* SearchBar - contains all filter functionality */}
+          <HStack gap={4} mb={6}>
+            <Box flex={1}>
+              <SearchBar 
+                sortBy={sortBy}
+                onSortChange={handleSortChange}
+                tagUsageData={tagUsageData}
+              />
+            </Box>
+          </HStack>
         </Box>
 
-        {/* Debug info - shows current sort status */}
+        {/* Shows current sort status */}
         <Box mb={4}>
           <Text fontSize="sm" color="gray.600">
-            Showing {assets.length} assets • Sorted by: {sortBy === 'newest' ? 'Latest' : 'Oldest'} {loading && '(loading...)'}
+            Showing {uniqueAssets.length} assets • Sorted by: {sortBy === 'newest' ? 'Newest First' : 'Oldest First'} {loading && '(loading...)'}
           </Text>
         </Box>
 
@@ -73,13 +110,13 @@ export default function DashboardPage() {
           </Box>
         ) : (
           <Grid templateColumns="repeat(auto-fill, minmax(280px, 1fr))" gap={6}>
-            {assets.map((asset) => (
+            {uniqueAssets.map((asset) => (
               <AssetCard key={asset.id} asset={asset} />
             ))}
           </Grid>
         )}
 
-        {assets.length === 0 && !loading && (
+        {uniqueAssets.length === 0 && !loading && (
           <Box textAlign="center" py={12}>
             <Heading size="md" color="gray.500">No assets found</Heading>
           </Box>
