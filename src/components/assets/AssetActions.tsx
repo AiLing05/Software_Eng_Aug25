@@ -10,7 +10,7 @@ import { useAuth } from '@/lib/hooks/useAuth';
 
 interface AssetActionsProps {
   asset: Asset;
-  onEditClick?: () => void; // Receive edit click callback
+  onEditClick?: () => void; 
 }
 
 export default function AssetActions({ asset, onEditClick }: AssetActionsProps) {
@@ -18,16 +18,31 @@ export default function AssetActions({ asset, onEditClick }: AssetActionsProps) 
   const dispatch = useDispatch<AppDispatch>();
   const { canEdit, canDelete } = useAuth();
 
-  const handleDownload = () => {
-    window.open(asset.file_url, '_blank');
+  const handleDownload = async () => {
+    try {
+      const response = await fetch(asset.file_url, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/octet-stream' },
+      });
+      if (!response.ok) throw new Error('Failed to download file');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = asset.title;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download failed:', error);
+    }
   };
 
   const handleEdit = () => {
-    // If there is a callback function, call it, otherwise use the default behavior
     if (onEditClick) {
       onEditClick();
     } else {
-      // 
       console.log('Edit clicked for asset:', asset.id);
     }
   };
@@ -44,13 +59,13 @@ export default function AssetActions({ asset, onEditClick }: AssetActionsProps) 
       <Button onClick={handleDownload}>
         Download
       </Button>
-      
+
       {canEdit() && (
         <Button variant="outline" onClick={handleEdit}>
           Edit
         </Button>
       )}
-      
+
       {canDelete() && (
         <Button colorScheme="red" variant="outline" onClick={handleDelete}>
           Delete
