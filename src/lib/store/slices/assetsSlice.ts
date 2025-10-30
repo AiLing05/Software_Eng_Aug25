@@ -124,6 +124,9 @@ export const restoreAssetVersion = createAsyncThunk(
     }
   }
 );
+
+
+//Search assets with detailed auth debugging
 export const searchAssets = createAsyncThunk(
   'assets/searchAssets',
   async (filters: SearchFilters, { rejectWithValue }) => {
@@ -132,20 +135,21 @@ export const searchAssets = createAsyncThunk(
       const token = localStorage.getItem('access_token');
       const refreshToken = localStorage.getItem('refresh_token');
       
-      console.log('🔐 [AUTH DEBUG] Authentication status:', {
+      console.log('[AUTH DEBUG] Authentication status:', {
         hasAccessToken: !!token,
         hasRefreshToken: !!refreshToken,
         tokenLength: token?.length,
         filters: filters
       });
 
+      //Api for search call
       const response = await axios.get(API_ENDPOINTS.SEARCH, {
         params: filters,
       });
       
       return response.data;
     } catch (error: any) {
-      console.error('❌ [AUTH DEBUG] Full error details:', {
+      console.error('[AUTH DEBUG] Full error details:', {
         status: error.response?.status,
         statusText: error.response?.statusText,
         data: error.response?.data,
@@ -283,6 +287,8 @@ const assetsSlice = createSlice({
         state.loading = false
         state.error = action.payload as string
       })
+
+
       // Search assets
       .addCase(searchAssets.pending, (state) => {
         state.loading = true;
@@ -295,6 +301,8 @@ const assetsSlice = createSlice({
         state.loading = false;
         state.error = action.payload as string;
       })
+
+
       // Update asset - FIXED
       .addCase(updateAsset.pending, (state) => {
         state.loading = true;
@@ -318,6 +326,7 @@ const assetsSlice = createSlice({
         state.loading = false;
         state.error = action.payload as string;
       });
+
   },
 });
 
