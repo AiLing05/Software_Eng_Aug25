@@ -4,6 +4,9 @@ from .models import Asset, Tag, MetadataField, AssetVersion
 
 import logging
 
+import logging
+
+
 class TagSerializer(serializers.ModelSerializer):
    """Serializer for Tag model"""
   
@@ -107,7 +110,6 @@ class AssetSerializer(serializers.ModelSerializer):
        fields = [
            'id', 'title', 'description', 'file_url', 'file_type',
            'file_size', 'file_extension', 'thumbnail_url',
-           'uploaded_by', 'tags', 'metadata', 'version',
            'created_at', 'updated_at', 'tag_ids'
        ]
        read_only_fields = [
