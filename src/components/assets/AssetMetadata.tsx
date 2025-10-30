@@ -15,11 +15,10 @@ import {
  useDisclosure,
  Badge,
  Dialog,
- Progress,
- CloseButton,
 } from '@chakra-ui/react';
 import { useDropzone } from 'react-dropzone';
 import axios from '@/lib/api/axios';
+import axiosInstance from '@/lib/api/axios';
 
 
 interface AssetMetadataProps {
@@ -102,8 +101,6 @@ export default function AssetMetadata({
  const { open: isImageModalOpen, onOpen: onImageModalOpen, onClose: onImageModalClose } = useDisclosure();
  const [newImageFile, setNewImageFile] = useState<File | null>(null);
  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
- const [isUploadingImage, setIsUploadingImage] = useState(false);
- const [uploadProgress, setUploadProgress] = useState(0);
 
 
  // Handle image preview and cleanup
@@ -197,6 +194,12 @@ export default function AssetMetadata({
  }, [saveMessage]);
 
 
+ const handleSaveInModal = () => {
+   onImageModalClose();
+   console.log('File staged for main save:', newImageFile?.name);
+ };
+
+
  /**
   * Validates a tag name for correctness
   * @param tagName - The tag name to validate
@@ -232,6 +235,7 @@ export default function AssetMetadata({
    onDrop: (acceptedFiles) => {
      if (acceptedFiles.length > 0) {
        setNewImageFile(acceptedFiles[0]);
+       console.log('File staged:', acceptedFiles[0].name);
      }
    },
    accept: {
@@ -243,94 +247,6 @@ export default function AssetMetadata({
    },
    maxFiles: 1
  });
-
-
- /**
-  * Handles uploading a new image for the asset
-  * Sends PATCH request to update_asset endpoint with image file
-  */
- const handleUploadNewImage = async () => {
-   if (!newImageFile) return;
-
-
-   setIsUploadingImage(true);
-   setUploadProgress(0);
-
-
-   const formData = new FormData();
-   formData.append('image', newImageFile);
-
-
-   console.log('Image upload request:');
-   console.log('Endpoint:', `/assets/${asset.id}/update_asset/`);
-   console.log('File:', newImageFile.name);
-
-
-   try {
-     const response = await axios.patch(`/assets/${asset.id}/update_asset/`, formData, {
-       headers: {
-         'Content-Type': 'multipart/form-data',
-       },
-       onUploadProgress: (progressEvent) => {
-         if (progressEvent.total) {
-           const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-           setUploadProgress(progress);
-         }
-       },
-     });
-
-
-     console.log('Image upload successful:', response.data);
-
-
-     const updatedAsset = response.data;
-
-
-     console.log('Updated asset information:');
-     console.log('file_url:', updatedAsset.file_url);
-     console.log('thumbnail_url:', updatedAsset.thumbnail_url);
-     console.log('file_size:', updatedAsset.file_size);
-
-
-     // Update parent component with new asset data
-     if (onUpdateAsset) {
-       console.log('Calling onUpdateAsset to update parent component');
-       onUpdateAsset(updatedAsset);
-     }
-
-
-     // Update image display if new URL is available
-     const newImageUrl = updatedAsset.file_url || updatedAsset.thumbnail_url;
-     if (onImageUpdate && newImageUrl) {
-       console.log('Calling onImageUpdate:', newImageUrl);
-       onImageUpdate(newImageUrl);
-     }
-
-
-     // Reset state and close modal
-     setNewImageFile(null);
-     setPreviewImageUrl(null);
-     setUploadProgress(0);
-     onImageModalClose();
-
-
-     setSaveMessage({
-       type: 'success',
-       message: 'File updated successfully!'
-     });
-
-
-   } catch (error: any) {
-     console.error('Image upload failed:', error);
-     console.error('Error details:', error.response?.data);
-     setSaveMessage({
-       type: 'error',
-       message: `Image upload failed: ${error.response?.data?.message || 'Please check backend processing'}`
-     });
-   } finally {
-     setIsUploadingImage(false);
-   }
- };
 
 
  // Tag management functions
@@ -412,81 +328,64 @@ export default function AssetMetadata({
   * Main save function for asset metadata
   * Handles title, description, tags, and custom fields
   */
+/**
+* Main save function for asset metadata
+* Handles title, description, tags, and custom fields
+*/
  const handleSaveMain = async () => {
    setIsSaving(true);
    setSaveMessage(null);
 
 
    if (editedTitle.trim() === '') {
-     setEditedTitle(asset.title);
-     setSaveMessage({
-       type: 'error',
-       message: "⚠️ Title cannot be blank. Restored previous one."
-     });
+     setSaveMessage({ type: 'error', message: '⚠️ Title cannot be blank.' });
      setIsSaving(false);
      return;
    }
 
 
+   const formData = new FormData();
+   formData.append('title', editedTitle);
+   formData.append('description', editedDescription);
+   editedTags.forEach(tag => formData.append('tag_names', tag.trim().toLowerCase()));
+
+
+   const metadataObject: Record<string, string> = {};
+   customFields.forEach(field => {
+     if (field.key && field.value) metadataObject[field.key] = field.value;
+   });
+   formData.append('metadata_json', JSON.stringify(metadataObject));
+
+
+   if (newImageFile) {
+     console.log("Uploading file:", newImageFile.name);
+     formData.append('file', newImageFile); 
+   } else {
+     console.log("⚠️ No newImageFile found");
+   }
+
+
+   console.log("🧾 FormData entries:");
+   for (let pair of formData.entries()) console.log(pair[0], pair[1]);
+
+
    try {
-     const formData = new FormData();
-
-
-     formData.append('title', editedTitle);
-     formData.append('description', editedDescription);
-
-
-     // tags
-     editedTags.forEach(tag => formData.append('tag_names', tag.trim().toLowerCase()));
-
-
-     // custom fields
-     const metadataObject: Record<string, string> = {};
-     customFields.forEach(field => {
-       if (field.key.trim() && field.value.trim()) {
-         metadataObject[field.key] = field.value;
-       }
-     });
-     formData.append('metadata_json', JSON.stringify(metadataObject));
-
-
-     if (newImageFile) {
-       formData.append('image', newImageFile);
-     }
-
-
-     let success = false;
-     if (onSave) {
-       const saveData = {
-         title: editedTitle,
-         description: editedDescription,
-         tag_names: editedTags.map(t => t.trim().toLowerCase()),
-         metadata_json: JSON.stringify(metadataObject),
-         file: newImageFile 
-       };
-       success = await onSave(saveData);
-     } else {
-       success = await saveToBackend(formData);
-     }
-
-
-     if (success) {
-       setSaveMessage({ type: 'success', message: 'Asset updated successfully!' });
-       setNewImageFile(null); 
-       if (onEditToggle) onEditToggle(false);
-       else setInternalIsEditing(false);
-     } else {
-       throw new Error('Save failed');
-     }
-
-
-   } catch (error) {
-     console.error(error);
-     setSaveMessage({ type: 'error', message: 'Failed to update asset' });
+     const res = await axiosInstance.patch(
+       `/assets/${asset.id}/update_asset/`,
+       formData,
+       { headers: { "Content-Type": "multipart/form-data" } }
+     );
+     setSaveMessage({ type: 'success', message: 'Asset updated successfully!' });
+     setNewImageFile(null);
+   } catch (err) {
+     console.error(err);
+     setSaveMessage({ type: 'error', message: 'Failed to update asset.' });
    } finally {
      setIsSaving(false);
    }
  };
+
+
 
 
  /**
@@ -499,7 +398,7 @@ export default function AssetMetadata({
      console.log('Sending to Django update_asset endpoint:', `/assets/${asset.id}/update_asset/`);
 
 
-     const response = await axios.patch(`/assets/${asset.id}/update_asset/`, formData, {
+     const response = await axiosInstance.patch(`/assets/${asset.id}/update_asset/`, formData, {
        headers: { 'Content-Type': 'multipart/form-data' },
      });
 
@@ -555,6 +454,9 @@ export default function AssetMetadata({
  const handleCancelMain = () => {
    setEditedTitle(asset.title);
    setEditedDescription(asset.description || '');
+  
+   setNewImageFile(null);
+   setPreviewImageUrl(null);
 
 
    // Reset tags
@@ -658,6 +560,28 @@ export default function AssetMetadata({
      <VStack gap={6} align="stretch">
 
 
+       {newImageFile && (
+         <Box p={3} bg="blue.50" borderRadius="md" border="1px solid" borderColor="blue.200">
+           <HStack justify="space-between">
+             <HStack>
+               <Text fontSize="sm" fontWeight="medium" color="blue.700">
+                 📎 {newImageFile.name}
+               </Text>
+               <Badge colorScheme="blue" fontSize="xs">
+                 {formatFileSize(newImageFile.size)}
+               </Badge>
+             </HStack>
+             <Text fontSize="xs" color="blue.600">
+               Ready to save
+             </Text>
+           </HStack>
+           <Text fontSize="xs" color="blue.600" mt={1}>
+             This file will be uploaded when you click the main Save button
+           </Text>
+         </Box>
+       )}
+
+
        {/* Change Image Button */}
        <Box>
          <Text fontSize="sm" fontWeight="medium" mb={2}>Update New File</Text>
@@ -703,7 +627,8 @@ export default function AssetMetadata({
          <VStack gap={4} align="stretch">
            {/* Title Field */}
            <Box>
-             <Text fontSize="sm" fontWeight="medium" mb={2}>Title</Text>
+             <Text fontSize="sm" fontWeight="medium" mb={2}>
+               Title<Text as="span" color="red.500">*</Text></Text>
              <Input
                value={editedTitle}
                onChange={(e) => setEditedTitle(e.target.value)}
@@ -749,7 +674,9 @@ export default function AssetMetadata({
 
            {/* Tags Section */}
            <Box>
-             <Text fontSize="sm" fontWeight="medium" mb={2}>Tags</Text>
+             <Text fontSize="sm" fontWeight="medium" mb={2}>
+               Tags <Text as="span" color="red.500">*</Text>
+             </Text>
              <VStack gap={2} align="stretch">
                <HStack flexWrap="wrap" gap={2}>
                  {editedTags.map((tag, index) => (
@@ -758,6 +685,14 @@ export default function AssetMetadata({
                    </CustomTag>
                  ))}
                </HStack>
+
+
+               {/* Display error message */}
+               {editedTags.length === 0 && (
+                 <Text fontSize="xs" color="red.500" mt={1}>
+                   ⚠️ At least one tag is required
+                 </Text>
+               )}
 
 
                <Box>
@@ -877,22 +812,21 @@ export default function AssetMetadata({
            </HStack>
          </VStack>
        </Box>
-
-
+      
        {/* Image Update Modal */}
        <Dialog.Root open={isImageModalOpen} onOpenChange={(open) => !open && onImageModalClose()}>
          <Dialog.Backdrop />
          <Dialog.Positioner>
            <Dialog.Content maxWidth="lg">
              <Dialog.Header>
-               <Dialog.Title>Update New File</Dialog.Title>
+               <Dialog.Title>Select New File</Dialog.Title>
              </Dialog.Header>
 
 
              <Dialog.Body>
                <VStack gap={4} align="stretch">
                  <Text fontSize="sm" color="gray.600">
-                   Upload a new file for this asset. This will replace the current file.
+                   Choose a new file for this asset. The file will be uploaded when you click the main Save button.
                  </Text>
 
 
@@ -910,7 +844,7 @@ export default function AssetMetadata({
                  >
                    <input {...getImageInputProps()} />
                    <Text fontSize="lg" mb={2}>
-                     {isImageDragActive ? 'Drop image here' : 'Drag & drop new image here'}
+                     {isImageDragActive ? 'Drop file here' : 'Drag & drop file here'}
                    </Text>
                    <Text fontSize="sm" color="gray.600">
                      or click to select file
@@ -923,11 +857,11 @@ export default function AssetMetadata({
 
                  {/* Selected File Preview */}
                  {newImageFile && (
-                   <Box p={3} bg="blue.50" borderRadius="md">
+                   <Box p={3} bg="green.50" borderRadius="md" border="1px solid" borderColor="green.200">
                      <HStack justify="space-between">
                        <HStack>
-                         <Text fontWeight="medium">{newImageFile.name}</Text>
-                         <Badge colorScheme="blue">
+                         <Text fontWeight="medium" color="green.700">{newImageFile.name}</Text>
+                         <Badge colorScheme="green">
                            {formatFileSize(newImageFile.size)}
                          </Badge>
                        </HStack>
@@ -935,19 +869,9 @@ export default function AssetMetadata({
                          Remove
                        </Button>
                      </HStack>
-                   </Box>
-                 )}
-
-
-                 {/* Upload Progress */}
-                 {isUploadingImage && (
-                   <Box>
-                     <Text fontSize="sm" mb={2}>Uploading... {uploadProgress}%</Text>
-                     <Progress.Root value={uploadProgress} size="sm">
-                       <Progress.Track>
-                         <Progress.Range />
-                       </Progress.Track>
-                     </Progress.Root>
+                     <Text fontSize="sm" color="green.600" mt={1}>
+                       File selected and ready for upload
+                     </Text>
                    </Box>
                  )}
                </VStack>
@@ -955,18 +879,17 @@ export default function AssetMetadata({
 
 
              <Dialog.Footer>
-               <Button variant="ghost" onClick={onImageModalClose} mr={3}>
-                 Cancel
-               </Button>
-               <Button
-                 colorScheme="blue"
-                 onClick={handleUploadNewImage}
-                 disabled={!newImageFile || isUploadingImage}
-                 loading={isUploadingImage}
-               >
-                 Save
-               </Button>
-             </Dialog.Footer>
+             <Button variant="ghost" onClick={onImageModalClose} mr={3}>
+               Cancel
+             </Button>
+             <Button
+               onClick={handleSaveInModal}
+               disabled={!newImageFile}
+               colorScheme="blue"
+             >
+               Select File
+             </Button>
+           </Dialog.Footer>
            </Dialog.Content>
          </Dialog.Positioner>
        </Dialog.Root>
