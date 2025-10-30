@@ -44,18 +44,58 @@ export default function SearchBar({
   onSortChange
 }: SearchBarProps) {
   const dispatch = useDispatch<AppDispatch>();
-  const { loading } = useSelector((state: RootState) => state.assets);
+  const { loading, items } = useSelector((state: RootState) => state.assets);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedTerm, setDebouncedTerm] = useState('');
+  const [dateField, setDateField] = useState<string>('created_at'); // We'll detect this
 
-  // Debug logging
+  // Debug: Find the correct date field
   useEffect(() => {
-    console.log('Search term:', searchTerm);
-  }, [searchTerm]);
+    if (items && items.length > 0) {
+      console.log('📅 [DEBUG] Checking for creation date field:');
+      
+      const firstAsset = items[0] as any;
+      let foundDateField = 'created_at'; // default
+      
+      // Look for fields that contain date-like data
+      Object.keys(firstAsset).forEach(key => {
+        const value = firstAsset[key];
+        
+        // Check if this looks like a date field (based on name and value)
+        if (typeof value === 'string') {
+          const lowerKey = key.toLowerCase();
+          const isDateField = lowerKey.includes('created') || 
+                            lowerKey.includes('date') || 
+                            lowerKey.includes('time');
+          
+          const looksLikeDate = value.includes(',') && 
+                               (value.includes('202') || value.includes('201'));
+          
+          if (isDateField && looksLikeDate) {
+            console.log(✅ Found likely date field: ${key} = ${value});
+            foundDateField = key;
+          }
+          
+          if (looksLikeDate) {
+            console.log(📌 Potential date field: ${key} = ${value});
+          }
+        }
+      });
+      
+      console.log(🎯 Using date field: ${foundDateField});
+      setDateField(foundDateField);
+    }
+  }, [items]);
 
-  useEffect(() => {
-    console.log('Debounced term:', debouncedTerm);
-  }, [debouncedTerm]);
+  // Map our sort options to what the API expects using the actual date field
+  const getSortParameter = (sortOption: string) => {
+    console.log('🔄 [DEBUG] Converting sort option:', sortOption, 'using field:', dateField);
+    
+    if (sortOption === 'newest') return -${dateField};  // Newest first (descending)
+    if (sortOption === 'oldest') return dateField;        // Oldest first (ascending)
+    
+    return -${dateField}; // default to newest first
+  };
 
   // Debounce effect
   useEffect(() => {
@@ -65,23 +105,36 @@ export default function SearchBar({
 
   // Search execution function
   const executeSearch = () => {
-    console.log('Executing search with:', {
-      keyword: debouncedTerm,
-      file_type: fileType,
-      tags: selectedTags,
-      date_from: dateFrom,
-      date_to: dateTo
+    const apiSortParam = getSortParameter(sortBy);
+    
+    console.log('🔍 [DEBUG] Executing search with:', {
+      sortBy,
+      apiSortParam,
+      dateField,
+      debouncedTerm,
+      fileType,
+      selectedTags,
+      dateFrom,
+      dateTo
     });
     
-    dispatch(
-      searchAssets({
-        keyword: debouncedTerm || undefined,
-        file_type: fileType || undefined,
-        tags: selectedTags?.length ? selectedTags : undefined,
-        date_from: dateFrom || undefined,
-        date_to: dateTo || undefined,
-      })
-    );
+    const searchParams: any = {
+      keyword: debouncedTerm || undefined,
+      file_type: fileType || undefined,
+      tags: selectedTags?.length ? selectedTags : undefined,
+      date_from: dateFrom || undefined,
+      date_to: dateTo || undefined,
+    };
+    
+    // Try different sorting parameter names - test these one by one
+    searchParams.ordering = apiSortParam;    // Most common for Django REST framework
+    // searchParams.sort = apiSortParam;     // Alternative
+    // searchParams.sort_by = apiSortParam;  // Another option
+    // searchParams.order_by = apiSortParam; // Or this
+    // searchParams.order = apiSortParam;    // Simple version
+    
+    console.log('📤 [DEBUG] Final search params:', searchParams);
+    dispatch(searchAssets(searchParams));
   };
 
   // Effect to trigger search when dependencies change
@@ -89,7 +142,13 @@ export default function SearchBar({
     if (debouncedTerm !== '' || fileType || selectedTags?.length || dateFrom || dateTo) {
       executeSearch();
     }
-  }, [debouncedTerm, fileType, selectedTags, dateFrom, dateTo, dispatch]);
+  }, [debouncedTerm, fileType, selectedTags, dateFrom, dateTo]);
+
+  // Effect to trigger search when sortBy changes
+  useEffect(() => {
+    console.log('🔄 [DEBUG] Sort option changed to:', sortBy);
+    executeSearch();
+  }, [sortBy]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -149,7 +208,7 @@ export default function SearchBar({
             onClick={handleSearchClick}
             colorScheme="blue"
             zIndex={2}
-            loading={loading}
+            loading={loading}  // Fixed: using 'loading' instead of 'isLoading'
           >
             Search
           </Button>
@@ -172,12 +231,14 @@ export default function SearchBar({
           >
             <option value="newest">Newest First</option>
             <option value="oldest">Oldest First</option>
-            <option value="title_asc">Title A-Z</option>
-            <option value="title_desc">Title Z-A</option>
-            <option value="relevance">Relevance</option>
           </select>
         </Box>
       </Flex>
+      
+      {/* Debug info - remove in production */}
+      <Box mt={2} fontSize="sm" color="gray.500">
+        Debug: Using date field "{dateField}" for sorting
+      </Box>
     </Box>
   );
 }
