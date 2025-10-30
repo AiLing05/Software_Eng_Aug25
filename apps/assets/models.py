@@ -43,9 +43,12 @@ class Asset(models.Model):
         ('other', 'Other'),
     ]
     
+    # Basic information
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
+    metadata_json = models.JSONField(default=dict, blank=True)
     
+    # File information
     file = models.FileField(upload_to='assets/%Y/%m/%d/')
     file_type = models.CharField(
         max_length=20,
@@ -55,26 +58,45 @@ class Asset(models.Model):
     )
     file_size = models.BigIntegerField(help_text='File size in bytes')
     file_extension = models.CharField(max_length=10)
-    
+
+    # Thumbnail
     thumbnail = models.ImageField(
         upload_to='thumbnails/%Y/%m/%d/',
         null=True,
         blank=True
     )
     
+    # Upload information
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='uploaded_assets'
     )
     
+    # Categorization
     tags = models.ManyToManyField(Tag, blank=True, related_name='assets')
     
+    # Manually entered category field
+    category = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text='Category, e.g., Marketing'
+    )
+    
+    # Version and status
     version = models.IntegerField(default=1)
     status = models.CharField(
         max_length=10,
         choices=STATUS_CHOICES,
         default='active'
+    )
+    
+    # Automatically extracted technical metadata (stored as JSON)
+    technical_metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Automatically extracted technical metadata'
     )
     
     created_at = models.DateTimeField(auto_now_add=True)
@@ -88,26 +110,33 @@ class Asset(models.Model):
             models.Index(fields=['file_type', 'status']),
             models.Index(fields=['created_at']),
             models.Index(fields=['uploaded_by']),
+            models.Index(fields=['category']),
         ]
     
     def __str__(self):
         return f"{self.title} ({self.file_type})"
     
     def save(self, *args, **kwargs):
-        creating = self._state.adding  # True if object just created
+        creating = self._state.adding
+        old_file = None
+
+        if not creating and self.pk:
+            old_asset = Asset.objects.filter(pk=self.pk).first()
+            if old_asset:
+                old_file = old_asset.file
+
         if self.file:
             self.file_size = self.file.size
             self.file_extension = os.path.splitext(self.file.name)[1].lower()
-            if not self.file_type:
-                self.file_type = self._determine_file_type()
+            self.file_type = self._determine_file_type()
 
         super().save(*args, **kwargs)
 
-        if creating and not self.thumbnail:
+        if creating or (old_file and old_file != self.file):
             try:
                 self._generate_thumbnail()
                 super().save(update_fields=['thumbnail'])
-                print(f"Thumbnail generated for {self.file.name}")
+                print(f"Thumbnail regenerated for {self.file.name}")
             except Exception as e:
                 print(f"Failed to generate thumbnail after save: {e}")
     
@@ -303,6 +332,98 @@ class Asset(models.Model):
         """Get thumbnail URL"""
         return self.thumbnail.url if self.thumbnail else None
 
+    def _extract_technical_metadata(self):
+        """Extract technical metadata"""
+        try:
+            base_metadata = {
+                'file_name': os.path.basename(self.file.name),
+                'file_type': self.get_file_type_display(),
+                'file_size_mb': f"{(self.file_size / 1024 / 1024):.2f}",
+            }
+            self.technical_metadata.update(base_metadata)
+            
+            if self.file_type == 'image':
+                self._extract_image_metadata()
+            elif self.file_type == 'video':
+                self._extract_video_metadata()
+            elif self.file_type == 'audio':
+                self._extract_audio_metadata()
+            elif self.file_type == 'document':
+                self._extract_document_metadata()
+                
+        except Exception as e:
+            print(f"Error extracting technical metadata: {e}")
+    
+    def _extract_image_metadata(self):
+        """Extract image metadata"""
+        try:
+            with Image.open(self.file) as img:
+                width, height = img.size
+                
+                self.technical_metadata.update({
+                    'file_name': os.path.basename(self.file.name),
+                    'file_type': 'Image',
+                    'resolution': f"{width} × {height}",
+                    'width': width,
+                    'height': height,
+                    'color_mode': img.mode,
+                    'format': img.format,
+                    'color_space': self._get_image_color_space(img),
+                    'dpi': img.info.get('dpi', 'N/A'),
+                })
+                print(f"Image size extracted successfully: {width} x {height}")
+        except Exception as e:
+            print(f"Error extracting image metadata: {e}")
+    
+    def _extract_video_metadata(self):
+        """Extract technical metadata for video files"""
+        self.technical_metadata.update({
+            'file_name': os.path.basename(self.file.name),
+            'file_type': 'Video',
+            'duration': 'N/A',
+            'resolution': 'N/A',
+            'frame_rate': 'N/A',
+            'bitrate': 'N/A',
+            'codec': 'N/A',
+            'audio_channels': 'N/A',
+            'aspect_ratio': 'N/A',
+            'color_space': 'N/A',
+        })
+    
+    def _extract_audio_metadata(self):
+        """Extract technical metadata for audio files"""
+        self.technical_metadata.update({
+            'file_name': os.path.basename(self.file.name),
+            'file_type': 'Audio',
+            'duration': 'N/A',
+            'bitrate': 'N/A',
+            'sample_rate': 'N/A',
+            'channels': 'N/A',
+            'format': 'N/A',
+        })
+    
+    def _extract_document_metadata(self):
+        """Extract technical metadata for document files"""
+        self.technical_metadata.update({
+            'file_name': os.path.basename(self.file.name),
+            'file_type': 'Document',
+            'page_count': 'N/A',
+            'author': 'N/A',
+            'created_date': 'N/A',
+            'modified_date': 'N/A',
+        })
+    
+    def _get_image_color_space(self, img):
+        """Get color space for image"""
+        color_spaces = {
+            'RGB': 'sRGB',
+            'L': 'Grayscale',
+            'CMYK': 'CMYK',
+            'LAB': 'LAB',
+            'HSV': 'HSV'
+        }
+        return color_spaces.get(img.mode, img.mode)
+    
 
 class MetadataField(models.Model):
     """Custom metadata fields for assets"""
@@ -350,8 +471,14 @@ class AssetVersion(models.Model):
         related_name='versions'
     )
     
-    version = models.IntegerField()
+    #delete if error
+    version = models.IntegerField(default=0)
+
+    #version = models.IntegerField(default=0)
     file = models.FileField(upload_to='versions/%Y/%m/%d/')
+    title = models.CharField(max_length=255, blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    tags_json = models.JSONField(blank=True, null=True)
     
     changes = models.TextField(help_text='Description of changes made')
     
