@@ -77,6 +77,7 @@ class AssetViewSet(viewsets.ModelViewSet):
     search_fields = ['title', 'description', 'tags__name']
     ordering_fields = ['created_at', 'updated_at', 'title', 'file_size']
     ordering = ['-created_at']
+    """sort the assets by created_at descending by default(Latest first)"""
 
     def get_serializer_class(self):
         """Dynamically select serializer based on action"""
@@ -500,7 +501,8 @@ class AssetViewSet(viewsets.ModelViewSet):
 
         serializer = AssetSerializer(asset, context={'request': request})
         return Response(serializer.data)
-
+    
+    """Search assets with filtering"""
     @action(detail=False, methods=['get'], url_path='search')
     def search(self, request):
         """Advanced search for assets with filtering and pagination"""
