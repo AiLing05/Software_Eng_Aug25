@@ -168,11 +168,13 @@ class AssetViewSet(viewsets.ModelViewSet):
        serializer = AssetSerializer(asset, context={'request': request})
        return Response(serializer.data)
   
+    #Build and Filter Query Set
    @action(detail=False, methods=['get'], url_path='search')
    def search(self, request):
        """Advanced search for assets"""
        queryset = self.filter_queryset(self.get_queryset())
-      
+
+      #apply pagination
        page = self.paginate_queryset(queryset)
        if page is not None:
            serializer = AssetListSerializer(
@@ -181,7 +183,7 @@ class AssetViewSet(viewsets.ModelViewSet):
                context={'request': request}
            )
            return self.get_paginated_response(serializer.data)
-      
+    #handle non-paginated response
        serializer = AssetListSerializer(
            queryset,
            many=True,
@@ -253,6 +255,7 @@ class TagViewSet(viewsets.ModelViewSet):
                {'error': str(e)},
                status=status.HTTP_400_BAD_REQUEST
            )
+       
   
    @action(detail=True, methods=['get'], url_path='assets')
    def assets(self, request, pk=None):
@@ -265,8 +268,6 @@ class TagViewSet(viewsets.ModelViewSet):
            context={'request': request}
        )
        return Response(serializer.data)
-
-
 
 
 class MetadataFieldViewSet(viewsets.ModelViewSet):
