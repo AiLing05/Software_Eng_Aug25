@@ -5,8 +5,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/lib/store';
 import { searchAssets } from '@/lib/store/slices/assetsSlice';
 import { fetchTags } from '@/lib/store/slices/tagsSlice';
-import { 
-  Input, 
+import {
+  Input,
   Button,
   Flex,
   Box,
@@ -19,12 +19,12 @@ import {
 
 // Simple search icon component
 const SearchIcon = () => (
-  <svg 
-    width="16" 
-    height="16" 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
     strokeWidth="2"
   >
     <circle cx="11" cy="11" r="8" />
@@ -34,12 +34,12 @@ const SearchIcon = () => (
 
 // Filter icon component
 const FilterIcon = () => (
-  <svg 
-    width="16" 
-    height="16" 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
     strokeWidth="2"
   >
     <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
@@ -48,19 +48,18 @@ const FilterIcon = () => (
 
 // Close icon component
 const CloseIcon = () => (
-  <svg 
-    width="14" 
-    height="14" 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
     strokeWidth="2"
   >
     <path d="M18 6L6 18M6 6l12 12" />
   </svg>
 );
 
-//有改动
 interface SearchBarProps {
   onFilterChange?: (filters: {
     fileType: string;
@@ -70,30 +69,30 @@ interface SearchBarProps {
   }) => void;
   sortBy?: string;
   onSortChange?: (value: string) => void;
-  tagUsageData?: { [key: number]: number };//加这个*****
+  tagUsageData?: { [key: number]: number };
 }
-//有改动
+
 export default function SearchBar({
   onFilterChange,
   sortBy = 'newest',
-  onSortChange,//加这个
-  tagUsageData = {} 
+  onSortChange,
+  tagUsageData = {}
 }: SearchBarProps) {
   const dispatch = useDispatch<AppDispatch>();
   const { loading, items: assets } = useSelector((state: RootState) => state.assets);
-  
+
   // Get loading and error states for tags
-  const { 
-    items: allTags, 
-    loading: tagsLoading, 
-    error: tagsError 
+  const {
+    items: allTags,
+    loading: tagsLoading,
+    error: tagsError
   } = useSelector((state: RootState) => state.tags);
-  
+
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedTerm, setDebouncedTerm] = useState('');
   const [dateField, setDateField] = useState<string>('created_at');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  
+
   // Filter states
   const [fileType, setFileType] = useState('');
   const [selectedTags, setSelectedTags] = useState<number[]>([]);
@@ -109,73 +108,107 @@ export default function SearchBar({
 
   // Fetch tags when component mounts
   useEffect(() => {
-    console.log('🔄 SearchBar mounted - fetching tags');
+    console.log('SearchBar mounted - fetching tags');
     dispatch(fetchTags())
       .unwrap()
       .then((result) => {
-        console.log('✅ Tags fetched successfully:', result);
-        console.log('📊 Result type:', typeof result);
-        console.log('🔢 Result keys:', Object.keys(result));
+        console.log('Tags fetched successfully:', result);
+        console.log('Result type:', typeof result);
+        console.log('Result keys:', Object.keys(result));
       })
       .catch((error) => {
-        console.error('❌ Error fetching tags:', error);
+        console.error('Error fetching tags:', error);
       });
   }, [dispatch]);
 
-  //1.加这个
+  // Use useMemo to count the number of unique assets
+  // The purpose of useMemo: Recalculate only when the dependency 
   const uniqueAssetsCount = useMemo(() => {
+
+    // If assets does not exist or is not an array, return 0 to prevent an error
     if (!assets || !Array.isArray(assets)) return 0;
-    
+
+    // Use a Set to store previously seen asset.ids (values ​​in a Set are unique)
     const seen = new Set();
+
+    // Use a filter to filter out unique assets
     const uniqueAssets = assets.filter(asset => {
+
+      // If this asset.id already appears in the Set, it's a duplicate → discard
       if (seen.has(asset.id)) {
         return false;
       }
+      // Otherwise, the first occurrence → add it to the Set
       seen.add(asset.id);
+
+      // Returns the number of unique assets
       return true;
     });
-    
+
+    // useMemo only reruns the calculation when assets change
     return uniqueAssets.length;
   }, [assets]);
 
-  //2.换这个
   // FIXED: Handle both array and object formats for tags
   // Only Top 10 tags were show
   const [sortedTags, setSortedTags] = useState<any[]>([]);
 
   useEffect(() => {
-    let tagsArray: any[] = [];
+    let tagsArray: any[] = []; // Stores the parsed tags array
 
+    // Check the data type of allTags to ensure it can be correctly converted to an array format tagsArray
     if (Array.isArray(allTags)) {
+
+      // Case 1: If allTags is an array (most common)
       tagsArray = allTags;
-      console.log('✅ Tags are array, count:', allTags.length);
+      console.log('Tags are array, count:', allTags.length);
+
+      // Case 2: If allTags is an object (e.g., an API returns paginated or wrapped data)
     } else if (typeof allTags === 'object' && allTags !== null) {
-      console.log('🔄 Tags are object, keys:', Object.keys(allTags));
+      console.log('Tags are object, keys:', Object.keys(allTags));
+
+      // Common field names that may contain tag arrays
+      // Some APIs store the actual data in items / results / data / tags / list
       const possibleArrayProperties = ['items', 'results', 'data', 'tags', 'list'];
+
+      // Loop through these possible fields and check if an array exists
       for (const prop of possibleArrayProperties) {
         if (Array.isArray(allTags[prop])) {
+
+          // Found a true tag array, e.g., allTags.results
           tagsArray = allTags[prop];
-          console.log('✅ Found array in property:', prop, 'count:', tagsArray.length);
-          break;
+          console.log('Found array in property:', prop, 'count:', tagsArray.length);
+          break; // Stop looping if found
         }
       }
+
+      // If no array field is found above, continue to try to parse the object
       if (tagsArray.length === 0) {
+
+        // Get all values ​​of the object, e.g., {a: [..], b: [..]} -> [[..], [..]]
         const valuesArray = Object.values(allTags);
+
+        // case 2.1: The first value of the object is an array (e.g., { data: [ {...}, {...} ] })
         if (valuesArray.length > 0 && Array.isArray(valuesArray[0])) {
           tagsArray = valuesArray[0];
-          console.log('✅ Found array in first value, count:', tagsArray.length);
+          console.log('Found array in first value, count:', tagsArray.length);
+
+          // Case 2.2: The object is in the form of a key-value pair (e.g., { 1: {id:1,name:'A'}, 2: {...} })
         } else {
+
+          // Filter out objects that meet the conditions (must contain id and name)
           tagsArray = Object.values(allTags).filter(item =>
             item && typeof item === 'object' && 'id' in item && 'name' in item
           );
-          console.log('✅ Filtered object values, count:', tagsArray.length);
+          console.log('Filtered object values, count:', tagsArray.length);
         }
       }
     }
 
-    console.log('📊 Raw tagsArray:', tagsArray);
-    console.log('📊 tagsArray count:', tagsArray.length);
-
+    //  Sort by tag usage count (usageCount)
+    //  First add usageCount to each tag
+    //  Then sort in descending order by usage count
+    //  If the usage counts are the same, sort alphabetically by name
     const sortedOnce = tagsArray
       .map(tag => ({
         ...tag,
@@ -188,52 +221,55 @@ export default function SearchBar({
         return a.name.localeCompare(b.name);
       })
 
-    // ✅ 只在第一次设置（防止点选时重新排序）
+    // Only set the sorting result on the first load to prevent re-sorting on repeated refreshes
     setSortedTags(prev => (prev.length === 0 ? sortedOnce : prev));
   }, [allTags, tagUsageData]);
 
-  // availableTags remains the same, just displays sortedTags
+  // Handle both array and object formats for tags
   const availableTags = sortedTags;
 
   const [visibleCount, setVisibleCount] = useState(10);
   const INCREMENT = 10;
 
+  // "Show More" button handler
   const handleShowMore = () => {
+    // Increase the number of displayed tags each time it's clicked
+    // Math.min(...) ensures the total number of tags (availableTags.length)
     setVisibleCount(prev => Math.min(prev + INCREMENT, availableTags.length));
   };
 
+  // "Show Less" button handler
   const handleShowLess = () => {
     setVisibleCount(10);
+    // Reset the displayed number of tags back to the default of 10
   };
-
-  //到这里！！！！！！
 
   // Find the correct date field
   useEffect(() => {
     if (assets && assets.length > 0) {
       const firstAsset = assets[0] as any;
       let foundDateField = 'created_at'; // default
-      
+
       // Look for Created time which contain date data
       Object.keys(firstAsset).forEach(key => {
         const value = firstAsset[key];
-        
+
         // Check if this looks like a date field (based on name and value)
         if (typeof value === 'string') {
           const lowerKey = key.toLowerCase();
-          const isDateField = lowerKey.includes('created') || 
-                            lowerKey.includes('date') || 
-                            lowerKey.includes('time');
-          
-          const looksLikeDate = value.includes(',') && 
-                               (value.includes('202') || value.includes('201'));
-          
+          const isDateField = lowerKey.includes('created') ||
+            lowerKey.includes('date') ||
+            lowerKey.includes('time');
+
+          const looksLikeDate = value.includes(',') &&
+            (value.includes('202') || value.includes('201'));
+
           if (isDateField && looksLikeDate) {
             foundDateField = key;
           }
         }
       });
-      
+
       setDateField(foundDateField);
     }
   }, [assets]);
@@ -242,7 +278,7 @@ export default function SearchBar({
   const getSortParameter = (sortOption: string) => {
     if (sortOption === 'newest') return `-${dateField}`;  // Newest first (descending)
     if (sortOption === 'oldest') return dateField;        // Oldest first (ascending)
-    
+
     return `-${dateField}`; // default to newest first
   };
 
@@ -255,7 +291,7 @@ export default function SearchBar({
   // Search execution function 
   const executeSearch = () => {
     const apiSortParam = getSortParameter(sortBy);
-    
+
     // Build up for the search parameter
     const searchParams: any = {
       keyword: debouncedTerm || undefined,
@@ -263,19 +299,19 @@ export default function SearchBar({
       date_from: dateFrom || undefined,
       date_to: dateTo || undefined,
     };
-    
+
     // Add tags if any are selected
     if (selectedTags.length > 0) {
       searchParams.tags = selectedTags.join(',');
     }
-    
+
     // Sorting parameter 
-    searchParams.ordering = apiSortParam;   
-    
+    searchParams.ordering = apiSortParam;
+
     console.log('🔍 Executing search with params:', searchParams);
     console.log('🏷️ Selected tags:', selectedTags);
     console.log('📤 Tags being sent to API:', searchParams.tags);
-    
+
     dispatch(searchAssets(searchParams));
   };
 
@@ -283,7 +319,7 @@ export default function SearchBar({
   useEffect(() => {
     console.log('🔄 Filter change detected - triggering search');
     console.log('🏷️ Selected tags in effect:', selectedTags);
-    
+
     executeSearch();
   }, [debouncedTerm, fileType, selectedTags, dateFrom, dateTo]);
 
@@ -330,6 +366,7 @@ export default function SearchBar({
     setFileType(newFileType);
   };
 
+  // Handling changes to date filters (start and end dates)
   const handleDateChange = (type: 'from' | 'to', value: string) => {
     if (type === 'from') {
       setDateFrom(value);
@@ -348,20 +385,23 @@ export default function SearchBar({
     }
   };
 
+  // Function to switch the selected state of a label
   const toggleTag = (tagId: number) => {
     console.log('🟡 Toggling tag:', tagId);
     console.log('🟡 Current selected tags:', selectedTags);
-    
+
+    //Update the state of the selected tab
     setSelectedTags(prev => {
       const newSelectedTags = prev.includes(tagId)
-        ? prev.filter(id => id !== tagId)
-        : [...prev, tagId];
-      
+        ? prev.filter(id => id !== tagId) // Remove the tag
+        : [...prev, tagId]; // Add the tag
+
       console.log('🟢 New selected tags:', newSelectedTags);
-      return newSelectedTags;
+      return newSelectedTags; // Return the new state to setSelectedTags
     });
   };
 
+  // Reset all filters
   const handleResetFilters = () => {
     console.log('🗑️ Resetting all filters');
     setFileType('');
@@ -370,12 +410,12 @@ export default function SearchBar({
     setDateTo('');
   };
 
+  // Clear all selected tags
   const clearAllTags = () => {
     console.log('🗑️ Clearing all tags');
     setSelectedTags([]);
   };
 
-  //下面整个都有改！
   return (
     <>
       {/* Main Search Bar */}
@@ -404,7 +444,7 @@ export default function SearchBar({
             >
               <SearchIcon />
             </Box>
-            <Button 
+            <Button
               position="absolute"
               right="0.5rem"
               top="50%"
@@ -418,8 +458,8 @@ export default function SearchBar({
               Search
             </Button>
           </Box>
-          
-          {/* Filter Button and Sort - positioned together */}
+
+          {/* Filter Button and Sort */}
           <Flex gap={3} width={{ base: "100%", md: "auto" }} align="center">
             <Button
               onClick={() => setIsFilterOpen(!isFilterOpen)}
@@ -433,8 +473,8 @@ export default function SearchBar({
                 <FilterIcon />
                 <Text>Filters</Text>
                 {activeFiltersCount > 0 && (
-                  <Badge 
-                    borderRadius="full" 
+                  <Badge
+                    borderRadius="full"
                     fontSize="xs"
                     minW="20px"
                     height="20px"
@@ -470,7 +510,7 @@ export default function SearchBar({
           </Flex>
         </Flex>
 
-        {/* Filter Panel - Compact version */}
+        {/* Filter Panel */}
         {isFilterOpen && (
           <Box
             mt={4}
@@ -487,9 +527,9 @@ export default function SearchBar({
               <Flex justify="space-between" align="center">
                 <Text fontSize="lg" fontWeight="bold">Filters</Text>
                 <HStack gap={2}>
-                  <Button 
-                    size="sm" 
-                    variant="ghost" 
+                  <Button
+                    size="sm"
+                    variant="ghost"
                     colorScheme="gray"
                     onClick={handleResetFilters}
                     disabled={activeFiltersCount === 0}
@@ -511,8 +551,8 @@ export default function SearchBar({
                 {/* File Type */}
                 <Box>
                   <Text fontSize="sm" fontWeight="medium" mb={2}>File Type</Text>
-                  <select 
-                    value={fileType} 
+                  <select
+                    value={fileType}
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleFileTypeChange(e.target.value)}
                     style={{
                       width: '100%',
@@ -532,7 +572,7 @@ export default function SearchBar({
                   </select>
                 </Box>
 
-                {/* Date Range - Fixed alignment */}
+                {/* Date Range */}
                 <Box>
                   <Text fontSize="sm" fontWeight="medium" mb={2}>Date Range</Text>
                   <HStack gap={2}>
@@ -569,10 +609,10 @@ export default function SearchBar({
                 <Flex justify="space-between" align="center" mb={2}>
                   <Text fontSize="sm" fontWeight="medium">Popular Tags</Text>
                   {selectedTags.length > 0 && (
-                    <Button 
-                      size="xs" 
-                      variant="ghost" 
-                      colorScheme="red" 
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      colorScheme="red"
                       onClick={clearAllTags}
                     >
                       Clear tags
@@ -598,7 +638,7 @@ export default function SearchBar({
 
                 {!tagsLoading && availableTags.length > 0 ? (
                   <>
-                    {/* ✅ 显示前 visibleCount 个标签 */}
+                    {/* Show Top 10 common tags */}
                     {availableTags.slice(0, visibleCount).map((tag: any) => (
                       <Box
                         key={tag.id}
@@ -617,42 +657,43 @@ export default function SearchBar({
                         }}
                         transition="all 0.2s"
                         whiteSpace="nowrap"
-                        margin="9px" 
+                        margin="9px"
                       >
                         {tag.name.toUpperCase()}
                       </Box>
                     ))}
 
-                    {/* ✅ Show More / Show Less 按钮 */}
+                    {/* Show More / Show Less button */}
                     {availableTags.length > 10 && (
-                      <Text 
+                      <Text
                         as="span"
                         color="blue.500"
                         fontSize="xs"
                         cursor="pointer"
                         onClick={visibleCount >= availableTags.length ? handleShowLess : handleShowMore}
                         _hover={{
-                          color: "blue.600"
+                          color: "blue.700"
                         }}
                         ml={2}
-                        alignSelf="center" 
-                        lineHeight="1.2"   
+                        alignSelf="center"
+                        lineHeight="1.2"
+                        whiteSpace="nowrap"
                       >
-                        {visibleCount >= availableTags.length ? 'Show Less' : 'Show More'}
+                        {visibleCount >= availableTags.length ? '❮ Show Less' : 'More ❯'}
                       </Text>
                     )}
                   </>
                 ) : (
 
-                    !tagsLoading && (
-                      <Text fontSize="sm" color="blue.500" textAlign="center" width="100%">
-                        {tagsError ? `Error: ${tagsError}` : 'No tags available'}
-                      </Text>
-                    )
-                  )}
+                  !tagsLoading && (
+                    <Text fontSize="sm" color="blue.500" textAlign="center" width="100%">
+                      {tagsError ? `Error: ${tagsError}` : 'No tags available'}
+                    </Text>
+                  )
+                )}
               </Box>
 
-              {/* Status - Compact */}
+              {/* Status */}
               <Text fontSize="sm" color="gray.600" textAlign="center">
                 {loading ? 'Searching...' : `${uniqueAssetsCount} assets found`}
               </Text>

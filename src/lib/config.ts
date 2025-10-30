@@ -5,10 +5,10 @@ export const MEDIA_BASE_URL = process.env.NEXT_PUBLIC_MEDIA_BASE_URL || 'http://
 // API Endpoints
 export const API_ENDPOINTS = {
   // Authentication
-  LOGIN: '/accounts/login/',
-  LOGOUT: '/accounts/logout/',
-  REGISTER: '/accounts/register/',
-  USER_PROFILE: '/accounts/me/',
+  LOGIN: '/auth/login/',
+  LOGOUT: '/auth/logout/',
+  REGISTER: '/auth/register/',
+  USER_PROFILE: '/auth/user/',
   
   // Assets
   ASSETS: '/assets/',

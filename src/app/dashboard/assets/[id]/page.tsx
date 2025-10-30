@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/lib/store';
 import axios from '@/lib/api/axios';
@@ -66,29 +66,30 @@ const CopyIconComponent = () => (
   </svg>
 );
 
-/**
- * Asset Detail Page Component
- * Displays detailed information about a specific asset including metadata, tags, and version history
- */
+// Asset Detail Page Component
 export default function AssetDetailPage() {
-  // Get asset ID from URL parameters
+  const router = useRouter();
   const params = useParams();
   const dispatch = useDispatch<AppDispatch>();
-
-  // Get asset data and loading state from Redux store
   const { selectedAsset: asset, versions, loading } = useSelector((state: RootState) => state.assets);
 
-  // State to manage edit mode
   const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [currentAssetId, setCurrentAssetId] = useState<number | null>(null);
 
-  // Fetch asset data and version history when component mounts or asset ID changes
   useEffect(() => {
     const id = Number(params.id);
     if (id) {
+      setCurrentAssetId(id);
       dispatch(fetchAssetById(id));
       dispatch(fetchAssetVersions(id));
     }
-  }, [params.id, dispatch]);
+  }, [params.id, dispatch]); 
+
+  useEffect(() => {
+    if (asset && asset.id === currentAssetId) {
+      console.log('Asset data updated:', asset);
+    }
+  }, [asset, currentAssetId]);
 
   /**
    * Handle saving asset metadata updates
@@ -96,10 +97,10 @@ export default function AssetDetailPage() {
    * @returns Promise<boolean> - Success status of the save operation
    */
   const handleSave = async (data: any) => {
-    console.log('📝 page.tsx: Received update data:', data);
+    console.log('page.tsx: Received update data:', data);
 
     if (!asset) {
-      console.error('❌ Asset is null, cannot save');
+      console.error('Asset is null, cannot save');
       return false;
     }
 
@@ -121,14 +122,19 @@ export default function AssetDetailPage() {
       // Process custom metadata JSON
       if (data.metadata_json) {
         formData.append('metadata_json', data.metadata_json);
-        console.log('📤 page.tsx sending metadata_json:', data.metadata_json);
+        console.log('page.tsx sending metadata_json:', data.metadata_json);
       }
 
-      console.log('📤 page.tsx: Sending FormData to backend');
-      console.log('🏷️ Tags:', data.tag_names);
-      console.log('📝 Title:', data.title);
-      console.log('📄 Description:', data.description);
-      console.log('🔧 Custom fields:', data.metadata_json);
+      if (data.file) {
+        console.log('page.tsx: Including file in upload:', data.file.name);
+        formData.append('file', data.file);
+      }
+
+      console.log('page.tsx: Sending FormData to backend');
+      console.log('Tags:', data.tag_names);
+      console.log('Title:', data.title);
+      console.log('Description:', data.description);
+      console.log('Custom fields:', data.metadata_json);
 
       // Send PATCH request to update asset
       const response = await axios.patch(`/assets/${asset.id}/update_asset/`, formData, {
@@ -137,21 +143,25 @@ export default function AssetDetailPage() {
         },
       });
 
-      console.log('✅ page.tsx: Update successful:', response.data);
+      console.log('page.tsx: Update successful:', response.data);
 
-      // Refresh asset data after successful update
-      dispatch(fetchAssetById(asset.id));
+      await Promise.all([
+        dispatch(fetchAssetById(asset.id)),
+        dispatch(fetchAssetVersions(asset.id))
+      ]);
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      setIsEditing(false);
 
       return true;
     } catch (error) {
-      console.error('❌ page.tsx: Update failed:', error);
+      console.error('page.tsx: Update failed:', error);
       return false;
     }
   };
 
-  /**
-   * Copy asset ID to clipboard
-   */
+  // Copy asset ID to clipboard
   const handleCopyAssetId = (): void => {
     if (asset) {
       navigator.clipboard.writeText(asset.id.toString());
@@ -166,6 +176,17 @@ export default function AssetDetailPage() {
   const handleUpdateAsset = (updatedAsset: Asset) => {
     // Handle post-update logic here
     console.log('🔄 Asset updated:', updatedAsset);
+
+    if (asset) {
+      dispatch(updateAsset({
+        id: asset.id,
+        data: {
+        title: updatedAsset.title,
+        description: updatedAsset.description,
+        tags: updatedAsset.tags,
+      }
+      }));
+    }
   };
 
   /**
@@ -177,18 +198,17 @@ export default function AssetDetailPage() {
     // Handle post-image-update logic here, such as refreshing preview
   };
 
-  // Show loading state while fetching data
-  if (loading || !asset) {
+  if (loading || !asset || (currentAssetId && asset.id !== currentAssetId)) {
     return (
       <DashboardLayout>
         <Container maxW="container.xl" py={8}>
-          <Text>Loading...</Text>
+          <Text>Loading asset data...</Text>
         </Container>
       </DashboardLayout>
     );
   }
 
-  // Edit Mode - Show only asset preview and editing form
+  // Edit Mode 
   if (isEditing) {
     return (
       <DashboardLayout>
@@ -212,6 +232,7 @@ export default function AssetDetailPage() {
                 onSave={handleSave}
                 onUpdateAsset={handleUpdateAsset}
                 onImageUpdate={handleImageUpdate}
+                key={asset.id} 
               />
             </Box>
           </Grid>
@@ -220,20 +241,20 @@ export default function AssetDetailPage() {
     );
   }
 
-  // View Mode - Show full asset details
+  // View Mode 
   return (
     <DashboardLayout>
-      <Container maxW="container.xl" py={3}>
+      <Container maxW="container.xl" py={8}>
         {/* Page Header with Asset Title and Actions */}
-        <HStack justify="space-between" mb={3}>
-          <Heading size="4xl">{asset.title}</Heading>
+        <HStack justify="space-between" mb={6}>
+          <Heading size="3xl">{asset.title}</Heading>
           <AssetActions asset={asset} onEditClick={() => setIsEditing(true)} />
         </HStack>
 
         {/* Main Content Grid */}
         <Grid templateColumns={{ base: '1fr', lg: '2fr 1fr' }} gap={8}>
           {/* Left Column: Preview, Description, Version History */}
-          <VStack gap={1} align="stretch">
+          <VStack gap={6} align="stretch">
             {/* Asset Preview */}
             <Box bg="white" p={6} borderRadius="lg" shadow="sm">
               <AssetPreview asset={asset} />
@@ -256,12 +277,18 @@ export default function AssetDetailPage() {
             </Box>
           </VStack>
 
-          {/* Right Column: Details, Tags, Custom Fields */}
+          {/* Right Column: Details, Dimensions, Tags, Custom Fields */}
           <VStack gap={6} align="stretch">
             {/* Asset Details Section */}
             <Box bg="white" p={6} borderRadius="lg" shadow="sm">
               <Heading size="md" mb={4}>Details</Heading>
               <VStack gap={3} align="stretch">
+                
+                <HStack justify="space-between" alignItems="flex-start">
+                  <Text color="gray.600">Title:</Text>
+                  <Text>{asset.title}</Text>
+                </HStack>
+
                 {/* Asset ID with Copy Functionality */}
                 <HStack justify="space-between">
                   <Text color="gray.600">Asset ID:</Text>
@@ -294,7 +321,7 @@ export default function AssetDetailPage() {
                 {/* Version Number */}
                 <HStack justify="space-between">
                   <Text color="gray.600">Version:</Text>
-                  <Text>v{asset.version}</Text>
+                  <Text>V{asset.version}</Text>
                 </HStack>
 
                 {/* Uploaded By User */}
@@ -332,7 +359,7 @@ export default function AssetDetailPage() {
                     <Box
                       key={tag.id}
                       bg="gray.100"
-                      color="black"
+                      color="gray.800"
                       px={3}
                       py={1}
                       borderRadius="full"
@@ -352,13 +379,13 @@ export default function AssetDetailPage() {
                 )}
               </HStack>
             </Box>
-
-            {/* Custom Fields Section */}
+            
             <Box bg="white" p={6} borderRadius="lg" shadow="sm">
               <Heading size="md" mb={4}>More Info</Heading>
               {asset.metadata && Array.isArray(asset.metadata) && asset.metadata.length > 0 ? (
                 <VStack gap={3} align="stretch">
-                  {asset.metadata.map((field: any, index: number) => (
+                  {/* Dimensions */}
+                  {asset.metadata.filter(field => field.key === 'Dimensions').map((field: any, index: number) => (
                     <HStack key={field.id || `field-${index}`} justify="space-between">
                       <Text fontSize="sm" color="gray.600" minW="120px">
                         {field.key ?
@@ -377,6 +404,31 @@ export default function AssetDetailPage() {
                       </Text>
                     </HStack>
                   ))}
+                  
+                  {/* Others field */}
+                  {asset.metadata
+                    .filter(field => field.key !== 'Dimensions')
+                    .sort((a, b) => (a.id || 0) - (b.id || 0)) 
+                    .map((field: any, index: number) => (
+                      <HStack key={field.id || `field-${index}`} justify="space-between">
+                        <Text fontSize="sm" color="gray.600" minW="120px">
+                          {field.key ?
+                            field.key.replace(/_/g, ' ')
+                              .replace(/\b\w/g, (l: string) => l.toUpperCase())
+                            : `Field ${index + 1}`}:
+                        </Text>
+                        <Text
+                          fontSize="sm"
+                          maxW="200px"
+                          textAlign="right"
+                          wordBreak="break-all"
+                          fontWeight="medium"
+                        >
+                          {field.value !== undefined && field.value !== null ? String(field.value) : 'N/A'}
+                        </Text>
+                      </HStack>
+                    ))
+                  }
                 </VStack>
               ) : (
                 <Text color="gray.500" fontSize="sm">

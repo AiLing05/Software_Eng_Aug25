@@ -77,13 +77,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 width="48px"
                 height="48px"
                 borderRadius="full"
-                bg="blue.500"
-                color="white"
+                bg="gray.200"
+                color="black"
                 display="flex"
                 alignItems="center"
                 justifyContent="center"
                 fontSize="lg"
-                fontWeight="bold"
                 flexShrink={0}
               >
                 {user?.username?.charAt(0).toUpperCase()}

@@ -132,12 +132,12 @@ export default function ProfilePage() {
                         w="64px"
                         h="64px"
                         borderRadius="full"
-                        bg="blue.500"
+                        bg="gray.200"
                         display="flex"
                         alignItems="center"
                         justifyContent="center"
                     >
-                        <Text fontSize="2xl" fontWeight="bold" color="white">
+                        <Text fontSize="2xl" color="black">
                         {user.username?.charAt(0).toUpperCase()}
                         </Text>
                     </Box>
@@ -145,7 +145,7 @@ export default function ProfilePage() {
                     <Box>
                         <Heading size="2xl">{user.username}</Heading>
                         <Text color="gray.600" mb={2}>{user.email}</Text>
-                        <Badge colorScheme="blue" textTransform="capitalize">
+                        <Badge textTransform="capitalize">
                         {user.role}
                         </Badge>
                     </Box>
@@ -197,8 +197,7 @@ export default function ProfilePage() {
               {/* Edit Button */}
               <HStack justify="center" my={1}>
                 {!isEditing ? (
-                  <Button 
-                    colorScheme="blue" 
+                  <Button  
                     onClick={handleEditClick}
                     size="lg"
                   >
@@ -207,7 +206,7 @@ export default function ProfilePage() {
                 ) : null}
               </HStack>
 
-              {/* Edit form */}
+              {/* Edit Form */}
               {isEditing && (
                 <>
                   {/* Profile Form */}
@@ -242,7 +241,7 @@ export default function ProfilePage() {
 
                       <Box>
                         <Text fontSize="sm" fontWeight="medium" mb={2} color="gray.700">
-                          Name
+                          Username
                         </Text>
                         <Input
                           name="username"
@@ -275,7 +274,6 @@ export default function ProfilePage() {
                         </Button>
                         <Button 
                           type="submit" 
-                          colorScheme="blue"
                           loading={loading}
                           loadingText="Updating..."
                         >
