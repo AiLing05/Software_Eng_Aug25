@@ -31,12 +31,12 @@ export default function AssetCard({ asset }: AssetCardProps) {
       transition="all 0.2s"
       _hover={{ shadow: 'md', transform: 'translateY(-4px)' }}
       cursor="pointer"
-      onClick={() => router.push(/dashboard/assets/${asset.id})}
+      onClick={() => router.push(`/dashboard/assets/${asset.id}`)}
     >
       <Box position="relative" h="200px" bg="gray.100">
         {asset.thumbnail_url ? (
           <Image
-            src={${asset.thumbnail_url}?v=${asset.updated_at}}
+            src={`${asset.thumbnail_url}?v=${asset.updated_at}`}
             alt={asset.title}
             objectFit="cover"
             w="full"
@@ -44,7 +44,7 @@ export default function AssetCard({ asset }: AssetCardProps) {
           />
         ) : (
           <Box display="flex" alignItems="center" justifyContent="center" h="full" fontSize="4xl">
-            {asset.file_type === 'image' && '🖼'}
+            {asset.file_type === 'image' && '🖼️'}
             {asset.file_type === 'video' && '🎥'}
             {asset.file_type === '3d_model' && '🎨'}
             {asset.file_type === 'document' && '📄'}
@@ -63,21 +63,31 @@ export default function AssetCard({ asset }: AssetCardProps) {
 
       <VStack p={4} align="stretch" gap={2}>
         <Text fontWeight="semibold" lineClamp={1}>{asset.title}</Text>
-        <Box display="flex" flexWrap="wrap" gap="4px">
+        <Box display="flex" flexWrap="wrap" gap="4px" alignItems="center">
           {asset.tags && asset.tags.length > 0 ? (
-            asset.tags.map((tag) => (
-              <Box
-                key={tag.id}
-                bg={tag.color || 'gray.100'}
-                px="6px"
-                py="2px"
-                borderRadius="md"
-                fontSize="xs"
-                color={tag.color ? 'white' : 'gray.700'}
-              >
-                {tag.name.toUpperCase()}
-              </Box>
-            ))
+            <>
+              {asset.tags.slice(0, 3).map((tag) => (
+                <Box
+                  key={tag.id}
+                  bg="gray.100"
+                  color="gray.800"
+                  px={3}
+                  py={1}
+                  borderRadius="full"
+                  fontSize="xs"
+                  fontWeight="semibold"
+                  cursor="default"
+                  transition="all 0.2s"
+                >
+                  {tag.name.toUpperCase()}
+                </Box>
+              ))}
+              {asset.tags.length > 3 && (
+                <Text fontSize="xs" color="gray.500">
+                  +{asset.tags.length - 3}
+                </Text>
+              )}
+            </>
           ) : (
             <Text fontSize="sm" color="gray.500">
               No tags
@@ -89,7 +99,7 @@ export default function AssetCard({ asset }: AssetCardProps) {
             {format(new Date(asset.created_at), 'MMM dd, yyyy')}
           </Text>
           <Text fontSize="xs" color="gray.500">
-            v{asset.version}
+            V{asset.version}
           </Text>
         </HStack>
       </VStack>
