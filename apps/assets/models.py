@@ -23,7 +23,7 @@ class Tag(models.Model):
         verbose_name = 'Tag'
         verbose_name_plural = 'Tags'
     
-    def __str__(self):
+    def _str_(self):
         return self.name
 
 
@@ -113,7 +113,7 @@ class Asset(models.Model):
             models.Index(fields=['category']),
         ]
     
-    def __str__(self):
+    def _str_(self):
         return f"{self.title} ({self.file_type})"
     
     def save(self, *args, **kwargs):
@@ -199,6 +199,8 @@ class Asset(models.Model):
         from PIL import Image
 
         try:
+            self.file.seek(0)
+            
             with tempfile.NamedTemporaryFile(suffix=self.file_extension, delete=False) as temp:
                 temp.write(self.file.read())
                 temp.flush()
@@ -424,6 +426,40 @@ class Asset(models.Model):
         }
         return color_spaces.get(img.mode, img.mode)
     
+    @property
+    def file_url(self):
+        """Get file URL"""
+        return self.file.url if self.file else None
+    
+    @property
+    def thumbnail_url(self):
+        """Get thumbnail URL"""
+        return self.thumbnail.url if self.thumbnail else None
+    
+    @property
+    def duration(self):
+        """Get duration from technical metadata"""
+        return self.technical_metadata.get('duration', 'N/A')
+    
+    @property
+    def resolution(self):
+        """Get resolution from technical metadata"""
+        return self.technical_metadata.get('resolution', 'N/A')
+    
+    @property
+    def frame_rate(self):
+        """Get frame rate from technical metadata"""
+        return self.technical_metadata.get('frame_rate', 'N/A')
+    
+    @property
+    def bitrate(self):
+        """Get bitrate from technical metadata"""
+        return self.technical_metadata.get('bitrate', 'N/A')
+    
+    @property
+    def codec(self):
+        """Get codec from technical metadata"""
+        return self.technical_metadata.get('codec', 'N/A')
 
 class MetadataField(models.Model):
     """Custom metadata fields for assets"""
@@ -458,7 +494,7 @@ class MetadataField(models.Model):
         verbose_name_plural = 'Metadata Fields'
         unique_together = ['asset', 'key']
     
-    def __str__(self):
+    def _str_(self):
         return f"{self.asset.title} - {self.key}: {self.value}"
 
 
@@ -471,14 +507,8 @@ class AssetVersion(models.Model):
         related_name='versions'
     )
     
-    #delete if error
-    version = models.IntegerField(default=0)
-
-    #version = models.IntegerField(default=0)
+    version = models.IntegerField()
     file = models.FileField(upload_to='versions/%Y/%m/%d/')
-    title = models.CharField(max_length=255, blank=True, null=True)
-    description = models.TextField(blank=True, null=True)
-    tags_json = models.JSONField(blank=True, null=True)
     
     changes = models.TextField(help_text='Description of changes made')
     
@@ -496,7 +526,7 @@ class AssetVersion(models.Model):
         verbose_name_plural = 'Asset Versions'
         unique_together = ['asset', 'version']
     
-    def __str__(self):
+    def _str_(self):
         return f"{self.asset.title} - v{self.version}"
     
     @property
