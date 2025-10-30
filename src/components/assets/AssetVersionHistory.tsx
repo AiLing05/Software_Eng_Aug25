@@ -56,7 +56,7 @@ const MoreInfoUpdatedField = ({ line }: { line: string }) => {
      <HStack gap={2}>
        <Badge color="blue.600" bg="blue.100" fontSize="0.6em" px={2} py={0.5} borderRadius="sm">From</Badge>
        <Text fontSize="sm" color="gray.600">{from}</Text>
-       <Badge color="blue.700" bg="blue.100" fontSize="0.6em" px={2} py={0.5} borderRadius="sm">To</Badge>
+       <Badge color="blue.600" bg="blue.100" fontSize="0.6em" px={2} py={0.5} borderRadius="sm">To</Badge>
        <Text fontSize="sm" color="gray.700">{to}</Text>
      </HStack>
    </HStack>
@@ -65,6 +65,22 @@ const MoreInfoUpdatedField = ({ line }: { line: string }) => {
 
 
 export default function AssetVersionHistory({ versions, assetId }: AssetVersionHistoryProps) {
+
+
+ console.log("🔍 [AssetVersionHistory] Received versions:", versions);
+ console.log("🔍 [AssetVersionHistory] Asset ID:", assetId);
+ console.log("🔍 [AssetVersionHistory] Number of versions:", versions?.length || 0);
+  if (versions && versions.length > 0) {
+   console.log("🔍 [AssetVersionHistory] First version data:", versions[0]);
+   console.log("🔍 [AssetVersionHistory] All versions:", versions.map(v => ({
+     id: v.id,
+     version: v.version,
+     file_url: v.file_url,
+     title: v.title,
+     tags: v.tags,
+     has_changes: !!v.changes
+   })));
+ }
   const [showAll, setShowAll] = useState(false);
  const [expandedVersions, setExpandedVersions] = useState<Set<number>>(new Set());
 
@@ -81,8 +97,6 @@ export default function AssetVersionHistory({ versions, assetId }: AssetVersionH
 
 
  const getChangeSummary = (version: AssetVersion) => {
-
-
    if (Number(version.version) === 1) {
      const parts: string[] = [];
 
@@ -97,8 +111,7 @@ export default function AssetVersionHistory({ versions, assetId }: AssetVersionH
 
 
      const last = parts.pop();
-     if (parts.length === 0) return `had created ${last}.`;
-     return `had created ${parts.join(", ")} and ${last}.`;
+     if (parts.length === 0) return `had created a new asset.`;
    }
 
 
@@ -138,97 +151,109 @@ export default function AssetVersionHistory({ versions, assetId }: AssetVersionH
           line.includes("→") &&
           !line.includes("(none) →") &&
           !line.includes("→ (removed)");
-    console.log(`   isMoreInfoUpdate for "${line}": ${result}`);
+    console.log(`     isMoreInfoUpdate for "${line}": ${result}`);
    return result;
  };
 
 
-
-
  const renderMoreInfoLine = (line: string, idx: number) => {
-   console.log(`  [FRONTEND DEBUG] Rendering more info line: "${line}"`);
+   console.log(`   [FRONTEND DEBUG] Rendering more info line: "${line}"`);
    console.log(`    Includes → : ${line.includes("→")}`);
    console.log(`    Includes (none) → : ${line.includes("(none) →")}`);
    console.log(`    Includes → (removed) : ${line.includes("→ (removed)")}`);
    console.log(`    Is more info update: ${isMoreInfoUpdate(line)}`);
   
    if (line.includes("(none) →")) {
-     console.log(`    Rendering as New field`);
+     console.log(`     Rendering as New field`);
      return <MoreInfoNewField key={idx} line={line} />;
    } else if (line.includes("→ (removed)")) {
-     console.log(`    Rendering as Deleted field`);
+     console.log(`     Rendering as Deleted field`);
      return <MoreInfoDeletedField key={idx} line={line} />;
    } else if (isMoreInfoUpdate(line)) {
-     console.log(`    Rendering as Updated field`);
+     console.log(`     Rendering as Updated field`);
      return <MoreInfoUpdatedField key={idx} line={line} />;
    } else if (line.trim()) {
-     console.log(`     Rendering as plain text`);
+     console.log(`      Rendering as plain text`);
      return (
        <Text key={idx} fontSize="sm" mb={2} color="gray.700" whiteSpace="pre-wrap">
          {line}
        </Text>
      );
    }
-   console.log(`    No rendering for this line`);
+   console.log(`     No rendering for this line`);
    return null;
  };
 
 
  const renderVersionChanges = (version: AssetVersion) => {
+   console.log(` [renderVersionChanges] START - Version ${version.version}, ID: ${version.id}`);
+   console.log(` [renderVersionChanges] Version data:`, {
+     version: version.version,
+     file_url: version.file_url,
+     title: version.title,
+     tags: version.tags,
+     changes: version.changes,
+     metadata_json: version.metadata_json
+   });
    console.log(` [FRONTEND DEBUG] Rendering version ${version.version} changes:`);
    console.log(`  Changes text:`, version.changes);
   
    if (Number(version.version) === 1) {
+     console.log(`🔍 [V1 DEBUG] File URL:`, version.file_url);
+     console.log(`🔍 [V1 DEBUG] Title:`, version.title);
+     console.log(`🔍 [V1 DEBUG] Tags:`, version.tags);
+    
      return (
        <Box>
-         {/* File */}
-         <Box mb={3}>
-           <Text fontSize="sm" fontWeight="medium" mb={1}>File:</Text>
-           {version.file_url ? (
-             <Link
-               href={version.file_url}
-               target="_blank"
-               rel="noopener noreferrer"
-               color="blue.600"
-               fontSize="sm"
-               fontWeight="medium"
-               display="inline-flex"
-               alignItems="center"
-               gap={1}
-               _hover={{ color: "blue.700", textDecoration: "underline" }}
-             >
-               📎 View File
-             </Link>
-           ) : (
-             <Text fontSize="sm" color="gray.600">(No file)</Text>
-           )}
+         {/* Document information (with special style) */}
+         <Box mb={4} p={3} bg="gray.50" borderRadius="md" border="1px solid" borderColor="gray.300">
+           <Box mb={2}>
+             <Text fontSize="sm" fontWeight="medium" mb={1}>File:</Text>
+             {version.file_url ? (
+               <Link
+                 href={version.file_url}
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 color="blue.600"
+                 fontSize="sm"
+                 fontWeight="medium"
+                 display="inline-flex"
+                 alignItems="center"
+                 gap={1}
+                 _hover={{ color: "blue.700", textDecoration: "underline" }}
+               >
+                 📎 View File
+               </Link>
+             ) : (
+               <Text fontSize="sm" color="gray.600">(No file)</Text>
+             )}
+           </Box>
          </Box>
 
 
-         {/* Title */}
-         <Box mb={3}>
-           <Text fontSize="sm" fontWeight="medium">Title:</Text>
-           <Text fontSize="sm" color="gray.700">{version.title || "(No title)"}</Text>
+         {/* Basic info (title, description) */}
+         <Box mb={4} p={3} bg="gray.50" borderRadius="md" border="1px solid" borderColor="gray.300">
+           <Box mb={2}>
+             <Text fontSize="sm" fontWeight="medium">Title:</Text>
+             <Text fontSize="sm" color="gray.700">{version.title || "(No title)"}</Text>
+           </Box>
+           <Box mb={2}>
+             <Text fontSize="sm" fontWeight="medium">Description:</Text>
+             <Text fontSize="sm" color="gray.700">{version.description || "(No description)"}</Text>
+           </Box>
          </Box>
 
 
-         {/* Description */}
-         <Box mb={3}>
-           <Text fontSize="sm" fontWeight="medium">Description:</Text>
-           <Text fontSize="sm" color="gray.700">{version.description || "(No description)"}</Text>
-         </Box>
-
-
-         {/* Tags */}
-         <Box mb={3}>
-           <Text fontSize="sm" fontWeight="medium" mb={1}>Tags:</Text>
-           {version.tags && Array.isArray(version.tags) && version.tags.length > 0 ? (
+         {/* initial tags */}
+         {version.tags && Array.isArray(version.tags) && version.tags.length > 0 && (
+           <Box mb={4} p={3} bg="purple.50" borderRadius="md" border="1px solid" borderColor="purple.200">
+             <Text fontSize="sm" fontWeight="semibold" color="purple.700" mb={2}>Initial tags</Text>
              <HStack wrap="wrap" gap={1}>
                {version.tags.map((tag) => (
                  <Badge
                    key={tag.id}
-                   color="gray.700"
-                   bg="gray.100"
+                   color="purple.700"
+                   bg="purple.100"
                    fontSize="0.7em"
                    px={2}
                    py={0.5}
@@ -238,10 +263,8 @@ export default function AssetVersionHistory({ versions, assetId }: AssetVersionH
                  </Badge>
                ))}
              </HStack>
-           ) : (
-             <Text fontSize="sm" color="gray.600">(No tags)</Text>
-           )}
-         </Box>
+           </Box>
+         )}
        </Box>
      );
    }
@@ -249,12 +272,12 @@ export default function AssetVersionHistory({ versions, assetId }: AssetVersionH
 
    const changes = version.changes;
    if (!changes) {
-     console.log(`  No changes text found`);
+     console.log(` No changes text found`);
      return <Text fontSize="sm" color="gray.500">No changes noted</Text>;
    }
 
 
-   console.log(`  Changes found, splitting lines...`);
+   console.log(` Changes found, splitting lines...`);
    const lines = changes.split("\n");
    console.log(`  Lines:`, lines);
 
@@ -273,7 +296,7 @@ export default function AssetVersionHistory({ versions, assetId }: AssetVersionH
            return (
              <Box key={idx} mb={4} p={3} bg="gray.50" borderRadius="md" border="1px solid" borderColor="gray.200">
                <Text fontSize="sm" fontWeight="semibold" color="gray.700" mb={2}>
-                 New File Updated.
+                 File Updated
                </Text>
                {version.file_url && (
                  <Link
@@ -288,7 +311,7 @@ export default function AssetVersionHistory({ versions, assetId }: AssetVersionH
                    gap={1}
                    _hover={{ color: "blue.700", textDecoration: "underline" }}
                  >
-                   📎 View Previous File
+                   📎 View File
                  </Link>
                )}
              </Box>
@@ -306,7 +329,7 @@ export default function AssetVersionHistory({ versions, assetId }: AssetVersionH
                  <Text fontSize="sm" color="gray.600">{from}</Text>
                </HStack>
                <HStack gap={2}>
-                 <Badge color="blue.700" bg="blue.100" fontSize="0.6em" px={2} py={0.5} borderRadius="sm">To</Badge>
+                 <Badge color="blue.600" bg="blue.100" fontSize="0.6em" px={2} py={0.5} borderRadius="sm">To</Badge>
                  <Text fontSize="sm" color="gray.700">{to}</Text>
                </HStack>
              </Box>
@@ -342,7 +365,7 @@ export default function AssetVersionHistory({ versions, assetId }: AssetVersionH
          }
          else if (!line.includes("Title:") && !line.includes("Description:") && !line.includes("Tags:") && !line.includes("File:")) {
            if (line.trim() && (line.includes("→") || line.includes("(none) →") || line.includes("→ (removed)"))) {
-             console.log(`   More info field detected: "${line}"`);
+             console.log(`  More info field detected: "${line}"`);
             
              if (!hasRenderedMoreInfo) {
                hasRenderedMoreInfo = true;
@@ -369,6 +392,7 @@ export default function AssetVersionHistory({ versions, assetId }: AssetVersionH
        })}
 
 
+       {/* If no content is detected, the original text is displayed */}
        {!hasRenderedMoreInfo && changes.trim() && (
          <Text fontSize="sm" color="gray.700" whiteSpace="pre-wrap">
            {changes}
@@ -400,13 +424,12 @@ export default function AssetVersionHistory({ versions, assetId }: AssetVersionH
            borderColor="gray.200"
            cursor="pointer"
            onClick={() => toggleVersionExpansion(version.id)}
-           _hover={{ bg: "gray.50" }}
            transition="all 0.2s"
          >
            {/* Header */}
            <HStack justify="space-between">
              <HStack gap={2}>
-               <Badge colorScheme="blue" fontSize="0.7em" minW="40px">
+               <Badge fontSize="0.7em" minW="40px">
                  v{version.version}
                </Badge>
                <Text fontSize="sm" fontWeight="medium">
