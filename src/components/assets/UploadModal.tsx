@@ -14,7 +14,7 @@ import {
   HStack,
   Badge,
   Progress,
-  Heading, 
+  Heading,
 } from '@chakra-ui/react';
 
 interface UploadModalProps {
@@ -25,7 +25,7 @@ interface UploadModalProps {
 // Icon component
 const AddIcon = () => (
   <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-    <path d="M6 1V11M1 6H11" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M6 1V11M1 6H11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
   </svg>
 );
 
@@ -97,23 +97,23 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setFiles(acceptedFiles);
-    if (acceptedFiles.length > 0 && !title) {
-      setTitle(acceptedFiles[0].name);
+
+    if (acceptedFiles.length > 0) {
+      const file = acceptedFiles[0];
+      const baseName = file.name.replace(/\.[^/.]+$/, "");
+      setTitle(baseName);
+
+      setErrors(prev => ({ ...prev, file: false }));
     }
-    // Clear file error when file is selected
-    setErrors(prev => ({ ...prev, file: false }));
   }, [title]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
       'image/*': ['.jpg', '.jpeg', '.png', '.gif', '.webp'],
-      'video/*': ['.mp4', '.mov', '.avi', '.webm'],
-      'model/*': ['.glb', '.gltf', '.obj', '.fbx'],
-      'application/pdf': ['.pdf'],
-      'application/msword': ['.doc'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      'text/plain': ['.txt'],
+      '3d_model/*': ['.glb', '.gltf', '.obj', '.fbx'],
+      'video/*': ['.mp4', '.webm', '.mov', '.avi'],
+      'document/*': ['.pdf', '.doc', '.docx', '.txt']
     },
   });
 
@@ -143,7 +143,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
       title: !title.trim(),
       tags: tags.length === 0
     };
-    
+
     setErrors(newErrors);
     return !Object.values(newErrors).some(error => error);
   };
@@ -170,7 +170,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
       formData.append('file_type', fileType);
     }
 
-    // 处理标签 - 确保所有标签都是大写的
+    // Handle Upper Case
     if (tags.length > 0) {
       tags.forEach(tag => formData.append('tags', tag));
     }
@@ -215,7 +215,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
         {/* Dropzone */}
         <Box>
           <Text fontSize="sm" fontWeight="medium" mb={2}>
-            File * {errors.file && <Text as="span" color="red.500">- Please select a file</Text>}
+            File <Text as="span" color="red.500">*</Text>{errors.file && <Text as="span" color="red.500">- Please select a file</Text>}
           </Text>
           <Box
             {...getRootProps()}
@@ -261,7 +261,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
         {/* Title */}
         <Box>
           <Text fontSize="sm" fontWeight="medium" mb={2}>
-            Title * {errors.title && <Text as="span" color="red.500">- Title is required</Text>}
+            Title <Text as="span" color="red.500">*</Text>{errors.title && <Text as="span" color="red.500">- Title is required</Text>}
           </Text>
           <Input
             placeholder="Asset Title"
@@ -280,7 +280,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
         {/* Description */}
         <Box>
           <Text fontSize="sm" fontWeight="medium" mb={2} color="gray.700">
-            Description <Text as="span" color="gray.400" fontSize="xs">(Optional)</Text>
+            Description
           </Text>
           <Input
             placeholder="Enter asset description (optional)"
@@ -292,7 +292,7 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
         {/* Tags */}
         <Box>
           <Text fontSize="sm" fontWeight="medium" mb={2}>
-            Tags * {errors.tags && <Text as="span" color="red.500">- At least one tag is required</Text>}
+            Tags <Text as="span" color="red.500">*</Text>{errors.tags && <Text as="span" color="red.500">- At least one tag is required</Text>}
           </Text>
           <VStack gap={2} align="stretch">
             <HStack flexWrap="wrap" gap={2}>
@@ -302,11 +302,11 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
                 </CustomTag>
               ))}
             </HStack>
-            
+
             <Box>
               <Input
                 value={newTag}
-                onChange={(e) => setNewTag(e.target.value.toUpperCase())} 
+                onChange={(e) => setNewTag(e.target.value.toUpperCase())}
                 onKeyPress={handleTagKeyPress}
                 placeholder="Enter new tag..."
                 size="sm"
