@@ -29,7 +29,7 @@ const initialState: AssetsState = {
   },
 };
 
-// Async thunks - FIXED updateAsset
+// Update asset
 export const updateAsset = createAsyncThunk(
   'assets/updateAsset',
   async ({ id, data }: { id: number; data: any }, { rejectWithValue }) => {
@@ -125,7 +125,6 @@ export const restoreAssetVersion = createAsyncThunk(
   }
 );
 
-
 //Search assets with detailed auth debugging
 export const searchAssets = createAsyncThunk(
   'assets/searchAssets',
@@ -172,6 +171,7 @@ export const searchAssets = createAsyncThunk(
     }
   }
 );
+
 const assetsSlice = createSlice({
   name: 'assets',
   initialState,
@@ -233,6 +233,7 @@ const assetsSlice = createSlice({
         state.loading = false;
         state.error = action.payload as string;
       })
+
       // Fetch asset by ID
       .addCase(fetchAssetById.pending, (state) => {
         state.loading = true;
@@ -257,6 +258,7 @@ const assetsSlice = createSlice({
         state.loading = false;
         state.error = action.payload as string;
       })
+
       // Delete asset
       .addCase(deleteAsset.fulfilled, (state, action) => {
         state.items = state.items.filter(item => item.id !== action.payload);
@@ -264,6 +266,7 @@ const assetsSlice = createSlice({
           state.selectedAsset = null;
         }
       })
+
       // Fetch versions
       .addCase(fetchAssetVersions.fulfilled, (state, action) => {
         state.versions = action.payload;
@@ -302,8 +305,7 @@ const assetsSlice = createSlice({
         state.error = action.payload as string;
       })
 
-
-      // Update asset - FIXED
+      // Update asset
       .addCase(updateAsset.pending, (state) => {
         state.loading = true;
       })
