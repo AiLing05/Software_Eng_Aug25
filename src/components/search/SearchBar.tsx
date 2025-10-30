@@ -60,6 +60,7 @@ const CloseIcon = () => (
   </svg>
 );
 
+//有改动
 interface SearchBarProps {
   onFilterChange?: (filters: {
     fileType: string;
@@ -69,12 +70,14 @@ interface SearchBarProps {
   }) => void;
   sortBy?: string;
   onSortChange?: (value: string) => void;
+  tagUsageData?: { [key: number]: number };//加这个*****
 }
-
+//有改动
 export default function SearchBar({
   onFilterChange,
   sortBy = 'newest',
-  onSortChange
+  onSortChange,//加这个
+  tagUsageData = {} 
 }: SearchBarProps) {
   const dispatch = useDispatch<AppDispatch>();
   const { loading, items: assets } = useSelector((state: RootState) => state.assets);
@@ -119,41 +122,75 @@ export default function SearchBar({
       });
   }, [dispatch]);
 
-  // FIXED: Handle both array and object formats for tags
-  const availableTags = useMemo(() => {
-    // If it's already an array, use it directly
-    if (Array.isArray(allTags)) {
-      return allTags;
-    }
+  //1.加这个
+  const uniqueAssetsCount = useMemo(() => {
+    if (!assets || !Array.isArray(assets)) return 0;
     
-    // If it's an object, try to extract the array from common properties
-    if (typeof allTags === 'object' && allTags !== null) {
-      // Try common property names that might contain the tags array
+    const seen = new Set();
+    const uniqueAssets = assets.filter(asset => {
+      if (seen.has(asset.id)) {
+        return false;
+      }
+      seen.add(asset.id);
+      return true;
+    });
+    
+    return uniqueAssets.length;
+  }, [assets]);
+
+  //2.换这个
+  // FIXED: Handle both array and object formats for tags
+  // Only Top 10 tags were show
+  const [sortedTags, setSortedTags] = useState<any[]>([]);
+
+  useEffect(() => {
+    let tagsArray: any[] = [];
+
+    if (Array.isArray(allTags)) {
+      tagsArray = allTags;
+    } else if (typeof allTags === 'object' && allTags !== null) {
       const possibleArrayProperties = ['items', 'results', 'data', 'tags', 'list'];
-      
       for (const prop of possibleArrayProperties) {
         if (Array.isArray(allTags[prop])) {
-          return allTags[prop];
+          tagsArray = allTags[prop];
+          break;
         }
       }
-      
-      // If no array property found, try to convert object values to array
-      const valuesArray = Object.values(allTags);
-      if (valuesArray.length > 0 && Array.isArray(valuesArray[0])) {
-        return valuesArray[0];
-      }
-      
-      // Last resort: check if object values are tag objects
-      const tagObjects = Object.values(allTags).filter(item => 
-        item && typeof item === 'object' && 'id' in item && 'name' in item
-      );
-      if (tagObjects.length > 0) {
-        return tagObjects;
+      if (tagsArray.length === 0) {
+        const valuesArray = Object.values(allTags);
+        if (valuesArray.length > 0 && Array.isArray(valuesArray[0])) {
+          tagsArray = valuesArray[0];
+        } else {
+          tagsArray = Object.values(allTags).filter(item =>
+            item && typeof item === 'object' && 'id' in item && 'name' in item
+          );
+        }
       }
     }
-    
-    return [];
-  }, [allTags]);
+
+    const sortedOnce = tagsArray
+      .map(tag => ({
+        ...tag,
+        usageCount: tagUsageData[tag.id] || 0
+      }))
+      .sort((a, b) => {
+        if (b.usageCount !== a.usageCount) {
+          return b.usageCount - a.usageCount;
+        }
+        return a.name.localeCompare(b.name);
+      })
+
+    // ✅ 只在第一次设置（防止点选时重新排序）
+    setSortedTags(prev => (prev.length === 0 ? sortedOnce : prev));
+  }, [allTags, tagUsageData]);
+
+  // availableTags remains the same, just displays sortedTags
+  const availableTags = sortedTags;
+
+  const [visibleCount, setVisibleCount] = useState(10);
+  const INCREMENT = 10;
+
+  //到这里！！！！！！
 
   // Find the correct date field
   useEffect(() => {
@@ -187,10 +224,10 @@ export default function SearchBar({
 
   // Sort options to what the API expects using the actual date field
   const getSortParameter = (sortOption: string) => {
-    if (sortOption === 'newest') return `-${dateField}`;  // Newest first (descending)
+    if (sortOption === 'newest') return -${dateField};  // Newest first (descending)
     if (sortOption === 'oldest') return dateField;        // Oldest first (ascending)
     
-    return `-${dateField}`; // default to newest first
+    return -${dateField}; // default to newest first
   };
 
   // Debounce effect
@@ -220,7 +257,7 @@ export default function SearchBar({
     searchParams.ordering = apiSortParam;   
     
     console.log('🔍 Executing search with params:', searchParams);
-    console.log('🏷️ Selected tags:', selectedTags);
+    console.log('🏷 Selected tags:', selectedTags);
     console.log('📤 Tags being sent to API:', searchParams.tags);
     
     dispatch(searchAssets(searchParams));
@@ -229,7 +266,7 @@ export default function SearchBar({
   // Effect to trigger search when dependencies change
   useEffect(() => {
     console.log('🔄 Filter change detected - triggering search');
-    console.log('🏷️ Selected tags in effect:', selectedTags);
+    console.log('🏷 Selected tags in effect:', selectedTags);
     
     executeSearch();
   }, [debouncedTerm, fileType, selectedTags, dateFrom, dateTo]);
@@ -310,7 +347,7 @@ export default function SearchBar({
   };
 
   const handleResetFilters = () => {
-    console.log('🗑️ Resetting all filters');
+    console.log('🗑 Resetting all filters');
     setFileType('');
     setSelectedTags([]);
     setDateFrom('');
@@ -318,10 +355,11 @@ export default function SearchBar({
   };
 
   const clearAllTags = () => {
-    console.log('🗑️ Clearing all tags');
+    console.log('🗑 Clearing all tags');
     setSelectedTags([]);
   };
 
+  //下面整个都有改！
   return (
     <>
       {/* Main Search Bar */}
@@ -358,7 +396,6 @@ export default function SearchBar({
               height="2rem"
               size="sm"
               onClick={handleSearchClick}
-              colorScheme="blue"
               zIndex={2}
               loading={loading}
             >
@@ -370,7 +407,6 @@ export default function SearchBar({
           <Flex gap={3} width={{ base: "100%", md: "auto" }} align="center">
             <Button
               onClick={() => setIsFilterOpen(!isFilterOpen)}
-              colorScheme="blue"
               variant={isFilterOpen ? "solid" : "outline"}
               height="3rem"
               minWidth="auto"
@@ -382,7 +418,6 @@ export default function SearchBar({
                 <Text>Filters</Text>
                 {activeFiltersCount > 0 && (
                   <Badge 
-                    colorScheme="blue" 
                     borderRadius="full" 
                     fontSize="xs"
                     minW="20px"
@@ -476,7 +511,7 @@ export default function SearchBar({
                     <option value="">All Types</option>
                     <option value="image">Images</option>
                     <option value="video">Videos</option>
-                    <option value="model">3D Models</option>
+                    <option value="3d_model">3D Models</option>
                     <option value="document">Documents</option>
                   </select>
                 </Box>
@@ -516,7 +551,7 @@ export default function SearchBar({
               {/* Tags Filter */}
               <Box>
                 <Flex justify="space-between" align="center" mb={2}>
-                  <Text fontSize="sm" fontWeight="medium">Tags</Text>
+                  <Text fontSize="sm" fontWeight="medium">Popular Tags</Text>
                   {selectedTags.length > 0 && (
                     <Button 
                       size="xs" 
@@ -545,68 +580,77 @@ export default function SearchBar({
                   </Box>
                 )}
 
-                <Box 
-                  display="flex" 
-                  flexWrap="wrap" 
-                  gap={2}
-                  maxH="120px"
-                  overflowY="auto"
-                  p={3}
-                  border="1px solid"
-                  borderColor="gray.200"
-                  borderRadius="md"
-                  bg="gray.50"
-                >
-                  {!tagsLoading && availableTags.length > 0 ? (
-                    availableTags.map((tag: any) => (
+                {!tagsLoading && availableTags.length > 0 ? (
+                  <>
+                    {/* ✅ 显示前 visibleCount 个标签 */}
+                    {availableTags.slice(0, visibleCount).map((tag: any) => (
                       <Box
                         key={tag.id}
                         as="button"
-                        bg={selectedTags.includes(tag.id) ? "blue.500" : "white"}
-                        color={selectedTags.includes(tag.id) ? "white" : "gray.700"}
-                        border="1px solid"
-                        borderColor={selectedTags.includes(tag.id) ? "blue.500" : "gray.300"}
-                        borderRadius="md"
-                        px={2}
-                        py={1}
+                        bg={selectedTags.includes(tag.id) ? "blue.500" : "gray.100"}
+                        color={selectedTags.includes(tag.id) ? "white" : "gray.600"}
+                        borderRadius="full"
+                        px={4}
+                        py={2}
                         fontSize="xs"
-                        fontWeight="medium"
+                        fontWeight="bold"
                         cursor="pointer"
                         onClick={() => toggleTag(tag.id)}
                         _hover={{
-                          bg: selectedTags.includes(tag.id) ? "blue.600" : "gray.100"
+                          bg: selectedTags.includes(tag.id) ? "blue.600" : "gray.300"
                         }}
                         transition="all 0.2s"
                         whiteSpace="nowrap"
-                        display="inline-flex"
-                        alignItems="center"
-                        height="24px"
+                        margin="9px" 
                       >
-                        {tag.name}
+                        {tag.name.toUpperCase()}
                       </Box>
-                    ))
-                  ) : (
+                    ))}
+
+                    {/* ✅ Show More / Show Less 按钮 */}
+                    {availableTags.length > 10 && (
+                      <Box 
+                        as="button"
+                        bg="gray.100"
+                        color="blue.600"
+                        borderRadius="full"
+                        px={3}
+                        py={1}
+                        fontSize="xs"
+                        fontWeight="bold"
+                        cursor="pointer"
+                        onClick={() => {
+                          if (visibleCount >= availableTags.length) {
+                            setVisibleCount(10);
+                          } else {
+                            setVisibleCount(prev => Math.min(prev + INCREMENT, availableTags.length));
+                          }
+                        }}
+                        _hover={{
+                          bg: "gray.200"
+                        }}
+                      >
+                        <Text>
+                          
+                        </Text>
+                        {visibleCount >= availableTags.length ? 'Show Less' : 'Show More'}
+                      </Box>
+                    )}
+                  </>
+                ) : (
+
                     !tagsLoading && (
-                      <Text fontSize="sm" color="gray.500" textAlign="center" width="100%">
-                        {tagsError ? `Error: ${tagsError}` : 'No tags available'}
+                      <Text fontSize="sm" color="blue.500" textAlign="center" width="100%">
+                        {tagsError ? Error: ${tagsError} : 'No tags available'}
                       </Text>
                     )
                   )}
-                </Box>
               </Box>
 
               {/* Status - Compact */}
-              <Box 
-                p={2} 
-                bg="gray.50" 
-                borderRadius="md" 
-                border="1px solid"
-                borderColor="gray.200"
-              >
-                <Text fontSize="sm" color="gray.600" textAlign="center">
-                  {loading ? 'Searching...' : `${assets?.length || 0} assets found`}
-                </Text>
-              </Box>
+              <Text fontSize="sm" color="gray.600" textAlign="center">
+                {loading ? 'Searching...' : ${uniqueAssetsCount} assets found}
+              </Text>
             </VStack>
           </Box>
         )}
