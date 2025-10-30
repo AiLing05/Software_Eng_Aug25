@@ -104,13 +104,15 @@ export default function AssetActions({ asset }: AssetActionsProps) {
       // Append fields for asset patch
       fileData.append('title', title || asset.title);
       fileData.append('description', description || asset.description || '');
-      fileData.append('tags', JSON.stringify(allTags.map((t: any) => t.id)));
+      allTags.forEach(tag => {
+        fileData.append('tag_names', tag.name);
+      });
       fileData.append('version', String(asset.version + 1));
 
       // Patch asset
-      const res = await axios.patch(/assets/${asset.id}/, fileData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await axios.patch(/api/assets/${asset.id}/update_asset/, fileData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
 
       const updatedAsset = {
         ...asset,
@@ -138,13 +140,14 @@ export default function AssetActions({ asset }: AssetActionsProps) {
       const changesText = changes.join('\n') || 'No major changes.';
       
       // Post version history
-      await axios.post('/asset-versions/', {
+      console.log("DEBUG", {
         asset: asset.id,
         version: updatedAsset.version,
         file_url: updatedAsset.file_url,
-        created_by: updatedAsset.uploaded_by.id,
+        created_by: updatedAsset.uploaded_by?.id,
         changes: changesText,
       });
+
 
       // Update Redux store and force re-fetch to refresh preview & tags
       await dispatch(updateAssetThunk({ id: asset.id, data: updatedAsset }));
