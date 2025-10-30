@@ -1,4 +1,4 @@
-import django_filter
+import django_filters
 from .models import Asset
 
 
@@ -24,6 +24,6 @@ class AssetFilter(django_filters.FilterSet):
             models.Q(description__icontains=value) |
             models.Q(tags__name__icontains=value)
         ).distinct()
-"""New Version to update filter capacities"""
+
 
 from django.db import models

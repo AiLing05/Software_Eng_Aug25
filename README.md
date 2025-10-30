@@ -1,58 +1,31 @@
-\# Software Engineering Project - DAM System
+This is a [Django](https://www.djangoproject.com/) project created with [`django-admin startproject`](https://docs.djangoproject.com/en/stable/ref/django-admin/#startproject).
 
+## Getting Started
 
+First, run the development server:
 
-This is a Digital Asset Management (DAM) System for real-time sample monitoring.  
+```bash
+venv\Scripts\activate
+python manage.py runserver
+```
 
-The system allows users to upload, manage, search, and collaborate on digital assets such as images, videos, and documents.  
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000) with your browser to see the result.
 
+You can start editing the backend by modifying your Django apps inside the `backend` directory. The server auto-reloads as you edit the files.
 
+This project uses [Django REST Framework](https://www.django-rest-framework.org/) to build and manage API endpoints for the frontend.
 
-\## Features
+## Learn More
 
-\- User authentication (Admin, Editor, Viewer)
+To learn more about Django, take a look at the following resources:
 
-\- Asset upload/download with drag-and-drop
+- [Django Documentation](https://docs.djangoproject.com/en/stable/) - learn about Django features and API.
+- [Django REST Framework Docs](https://www.django-rest-framework.org/) - learn how to create and manage RESTful APIs.
 
-\- Metadata management (tags, custom fields)
+You can check out [the Django GitHub repository](https://github.com/django/django) - your feedback and contributions are welcome!
 
-\- Search with filters and date ranges
+## Deploy on Render
 
-\- Asset preview (images, PDFs, videos)
+The easiest way to deploy your Django app is to use the [Render Platform](https://render.com/), which supports Python and Django out of the box.
 
-\- Version history
-
-
-
-\## Tech Stack
-
-\- Frontend: Next.js + Chakra UI v3
-
-\- Backend: Django + Django REST Framework
-
-\- Database: PostgreSQL
-
-
-
-\## Group Members
-
-\- Koay Ai Ling  
-
-\- Ong Shin Yi 
-
-\- Tew Chia Chia
-
-\- Vivian Tan Mei Wei
-
-
-
-\## How to Run
-
-1\. Clone the repo
-
-2\. Install dependencies
-
-3\. Run backend server
-
-4\. Run frontend server
-
+Check out the [Render Django deployment guide](https://render.com/docs/deploy-django) for more details.

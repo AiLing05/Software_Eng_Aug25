@@ -1,11 +1,40 @@
-asgiref==3.9.2
+# Django Core (Latest Versions)
 Django==5.2.7
-django-cors-headers==4.9.0
-django-filter==25.1
 djangorestframework==3.16.1
-djangorestframework_simplejwt==5.5.1
-pillow==11.3.0
+djangorestframework-simplejwt==5.5.1
+
+# Database
 psycopg2-binary==2.9.10
+
+# CORS handling
+django-cors-headers==4.9.0
+
+# File handling
+Pillow==11.3.0
+python-magic==0.4.27
+
+# Environment variables
+python-decouple==3.8
+
+# Filtering and pagination
+django-filter==25.1
+
+# Password hashing
+argon2-cffi==23.1.0
+
+# AWS S3 support (optional)
+boto3==1.35.89
+django-storages==1.14.5
+
+# Development
+ipython==8.32.0
+
+# Core dependencies
+asgiref==3.9.2
 PyJWT==2.10.1
 sqlparse==0.5.3
 tzdata==2025.2
+
+# Video processing
+imageio==2.37.0
+imageio-ffmpeg==0.6.0
