@@ -1,11 +1,6 @@
-"use client";
 
-import { useEffect, useState, useMemo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { AppDispatch, RootState } from '@/lib/store';
-import { fetchAssets } from '@/lib/store/slices/assetsSlice';
-import { fetchTags } from '@/lib/store/slices/tagsSlice';
-import { Box, Container, Heading, Button, HStack, Grid, Text } from '@chakra-ui/react';
+//Latest Version of dashboard page with tag management and sorting fixes
+rid, Text } from '@chakra-ui/react';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
 import AssetCard from '@/components/assets/AssetCard';
 import SearchBar from '@/components/search/SearchBar';
