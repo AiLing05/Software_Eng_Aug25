@@ -23,7 +23,7 @@ class Tag(models.Model):
         verbose_name = 'Tag'
         verbose_name_plural = 'Tags'
     
-    def _str_(self):
+    def __str__(self):
         return self.name
 
 
@@ -90,24 +90,26 @@ class Asset(models.Model):
             models.Index(fields=['uploaded_by']),
         ]
     
-    def _str_(self):
+    def __str__(self):
         return f"{self.title} ({self.file_type})"
     
     def save(self, *args, **kwargs):
-        # Set file metadata
+        creating = self._state.adding  # True if object just created
         if self.file:
             self.file_size = self.file.size
             self.file_extension = os.path.splitext(self.file.name)[1].lower()
-            
-            # Determine file type
             if not self.file_type:
                 self.file_type = self._determine_file_type()
-            
-            # Generate thumbnail for ALL file types
-            if not self.thumbnail:
-                self._generate_thumbnail()
-        
+
         super().save(*args, **kwargs)
+
+        if creating and not self.thumbnail:
+            try:
+                self._generate_thumbnail()
+                super().save(update_fields=['thumbnail'])
+                print(f"Thumbnail generated for {self.file.name}")
+            except Exception as e:
+                print(f"Failed to generate thumbnail after save: {e}")
     
     def _determine_file_type(self):
         """Determine file type based on extension"""
@@ -163,26 +165,26 @@ class Asset(models.Model):
     
     def _generate_video_thumbnail(self):
         """Generate thumbnail for video files - extract first frame"""
+        import tempfile
+        import imageio.v3 as iio
+        from PIL import Image
+
         try:
-            import imageio.v3 as iio
-            
-            # Read first frame
-            frame = iio.imread(self.file.path, index=0)
-            
-            # Convert to PIL Image
+            with tempfile.NamedTemporaryFile(suffix=self.file_extension, delete=False) as temp:
+                temp.write(self.file.read())
+                temp.flush()
+                frame = iio.imread(temp.name, index=0)
+
             pil_img = Image.fromarray(frame)
-            
-            # Resize
             pil_img.thumbnail((300, 300), Image.Resampling.LANCZOS)
-            
-            # Save to bytes
+
             thumb_io = BytesIO()
             pil_img.save(thumb_io, format='JPEG', quality=85)
             thumb_io.seek(0)
-            
+
             self._save_thumbnail_file(thumb_io, 'jpg')
             print(f"Generated actual video thumbnail for {self.file.name}")
-            
+
         except Exception as e:
             print(f"Video thumbnail generation failed for {self.file.name}: {e}")
             self._generate_generic_thumbnail()
@@ -191,7 +193,7 @@ class Asset(models.Model):
         """Generate document-style thumbnail for all document types"""
         try:
             # Create document-like thumbnail
-            img = Image.new('RGB', (300, 300), (248, 249, 250))  # Light gray background
+            img = Image.new('RGB', (300, 300), (248, 249, 250)) 
             draw = ImageDraw.Draw(img)
             
             # Draw document outline
@@ -335,7 +337,7 @@ class MetadataField(models.Model):
         verbose_name_plural = 'Metadata Fields'
         unique_together = ['asset', 'key']
     
-    def _str_(self):
+    def __str__(self):
         return f"{self.asset.title} - {self.key}: {self.value}"
 
 
@@ -367,7 +369,7 @@ class AssetVersion(models.Model):
         verbose_name_plural = 'Asset Versions'
         unique_together = ['asset', 'version']
     
-    def _str_(self):
+    def __str__(self):
         return f"{self.asset.title} - v{self.version}"
     
     @property
