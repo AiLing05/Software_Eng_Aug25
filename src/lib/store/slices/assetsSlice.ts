@@ -29,19 +29,7 @@ const initialState: AssetsState = {
   },
 };
 
-// Update asset
-export const updateAsset = createAsyncThunk(
-  'assets/updateAsset',
-  async ({ id, data }: { id: number; data: any }, { rejectWithValue }) => {
-    try {
-      const response = await axios.patch(API_ENDPOINTS.ASSET_DETAIL(id), data);
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to update asset');
-    }
-  }
-);
-
+// Async thunks
 export const fetchAssets = createAsyncThunk(
   'assets/fetchAssets',
   async (params: { page?: number; filters?: SearchFilters }, { rejectWithValue }) => {
@@ -87,6 +75,18 @@ export const uploadAsset = createAsyncThunk(
   }
 );
 
+export const updateAsset = createAsyncThunk(
+  'assets/updateAsset',
+  async ({ id, data }: { id: number; data: Partial<Asset> }, { rejectWithValue }) => {
+    try {
+      const response = await axios.patch(API_ENDPOINTS.ASSET_DETAIL(id), data);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to update asset');
+    }
+  }
+);
+
 export const deleteAsset = createAsyncThunk(
   'assets/deleteAsset',
   async (id: number, { rejectWithValue }) => {
@@ -111,21 +111,6 @@ export const fetchAssetVersions = createAsyncThunk(
   }
 );
 
-export const restoreAssetVersion = createAsyncThunk(
-  'assets/restoreVersion',
-  async ({ assetId, versionId }: { assetId: number; versionId: number }, { rejectWithValue }) => {
-    try {
-      const response = await axios.post(`/api/assets/${assetId}/restore_version/`, {
-        version_id: versionId
-      });
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data || 'Restore failed');
-    }
-  }
-);
-
-//Search assets with detailed auth debugging
 export const searchAssets = createAsyncThunk(
   'assets/searchAssets',
   async (filters: SearchFilters, { rejectWithValue }) => {
@@ -141,7 +126,6 @@ export const searchAssets = createAsyncThunk(
         filters: filters
       });
 
-      //Api for search call
       const response = await axios.get(API_ENDPOINTS.SEARCH, {
         params: filters,
       });
@@ -160,7 +144,7 @@ export const searchAssets = createAsyncThunk(
       // Specific 401 handling
       if (error.response?.status === 401) {
         const token = localStorage.getItem('access_token');
-        console.error('🔐 [AUTH DEBUG] 401 Unauthorized Details:', {
+        console.error('[AUTH DEBUG] 401 Unauthorized Details:', {
           hadToken: !!token,
           endpoint: API_ENDPOINTS.SEARCH,
           suggestion: 'Check if token is valid or refresh token flow'
@@ -183,35 +167,6 @@ const assetsSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
-    restoreAssetVersion: (state, action: PayloadAction<{ assetId: number; versionId: number }>) => {
-    },
-    updateAssetLocal: (state, action: PayloadAction<{ id: number; title: string; description: string; tags: string[] }>) => {
-      const { id, title, description, tags } = action.payload;
-      const index = state.items.findIndex(item => item.id === id);
-      
-      // Create proper tag objects
-      const tagObjects = tags.map((name, tagIndex) => ({ 
-        id: tagIndex, // Temporary ID, should come from backend
-        name 
-      }));
-      
-      if (index !== -1) {
-        state.items[index] = { 
-          ...state.items[index], 
-          title, 
-          description, 
-          tags: tagObjects 
-        };
-      }
-      if (state.selectedAsset?.id === id) {
-        state.selectedAsset = { 
-          ...state.selectedAsset, 
-          title, 
-          description, 
-          tags: tagObjects 
-        };
-      }
-    }
   },
   extraReducers: (builder) => {
     builder
@@ -233,7 +188,6 @@ const assetsSlice = createSlice({
         state.loading = false;
         state.error = action.payload as string;
       })
-
       // Fetch asset by ID
       .addCase(fetchAssetById.pending, (state) => {
         state.loading = true;
@@ -258,7 +212,16 @@ const assetsSlice = createSlice({
         state.loading = false;
         state.error = action.payload as string;
       })
-
+      // Update asset
+      .addCase(updateAsset.fulfilled, (state, action) => {
+        const index = state.items.findIndex(item => item.id === action.payload.id);
+        if (index !== -1) {
+          state.items[index] = action.payload;
+        }
+        if (state.selectedAsset?.id === action.payload.id) {
+          state.selectedAsset = action.payload;
+        }
+      })
       // Delete asset
       .addCase(deleteAsset.fulfilled, (state, action) => {
         state.items = state.items.filter(item => item.id !== action.payload);
@@ -266,32 +229,10 @@ const assetsSlice = createSlice({
           state.selectedAsset = null;
         }
       })
-
       // Fetch versions
       .addCase(fetchAssetVersions.fulfilled, (state, action) => {
         state.versions = action.payload;
       })
-      // Restore asset version
-      .addCase(restoreAssetVersion.pending, (state) => {
-        state.loading = true
-        state.error = null
-      })
-      .addCase(restoreAssetVersion.fulfilled, (state, action) => {
-        state.loading = false
-        if (state.selectedAsset?.id === action.payload.id) {
-          state.selectedAsset = action.payload
-        }
-        const index = state.items.findIndex(item => item.id === action.payload.id)
-        if (index !== -1) {
-          state.items[index] = action.payload
-        }
-      })
-      .addCase(restoreAssetVersion.rejected, (state, action) => {
-        state.loading = false
-        state.error = action.payload as string
-      })
-
-
       // Search assets
       .addCase(searchAssets.pending, (state) => {
         state.loading = true;
@@ -303,34 +244,9 @@ const assetsSlice = createSlice({
       .addCase(searchAssets.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
-      })
-
-      // Update asset
-      .addCase(updateAsset.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(updateAsset.fulfilled, (state, action) => {
-        state.loading = false;
-        const updatedAsset = action.payload;
-
-        // Update items array
-        const index = state.items.findIndex(item => item.id === updatedAsset.id);
-        if (index !== -1) {
-          state.items[index] = updatedAsset;
-        }
-
-        // Update selectedAsset
-        if (state.selectedAsset?.id === updatedAsset.id) {
-          state.selectedAsset = updatedAsset;
-        }
-      })
-      .addCase(updateAsset.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload as string;
       });
-
   },
 });
 
-export const { clearSelectedAsset, clearError, updateAssetLocal } = assetsSlice.actions;
+export const { clearSelectedAsset, clearError } = assetsSlice.actions;
 export default assetsSlice.reducer;
