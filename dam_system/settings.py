@@ -73,7 +73,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'dam_db',
         'USER': 'postgres',
-        'PASSWORD': '1212',
+        'PASSWORD': '139111',
         'HOST': 'localhost',
         'PORT': '5432',
     }
@@ -109,7 +109,6 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Media files
-import os
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
@@ -133,7 +132,7 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 20,
+    'PAGE_SIZE': 100,
     'DEFAULT_FILTER_BACKENDS': (
         'django_filters.rest_framework.DjangoFilterBackend',
         'rest_framework.filters.SearchFilter',
@@ -171,10 +170,10 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100 MB
 
 # Supported file types
 SUPPORTED_FILE_TYPES = {
-    'image': ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'],
+    'image': ['.jpg', '.jpeg', '.png', '.gif', '.webp'],
     '3d_model': ['.glb', '.gltf', '.obj', '.fbx'],
     'video': ['.mp4', '.webm', '.mov', '.avi'],
-    'document': ['.pdf', '.doc', '.docx'],
+    'document': ['.pdf', '.doc', '.docx', '.txt'],
 }
 
 # Thumbnail settings
