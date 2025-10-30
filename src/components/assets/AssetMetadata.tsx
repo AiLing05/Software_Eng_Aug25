@@ -19,6 +19,7 @@ import {
 import { useDropzone } from 'react-dropzone';
 import axios from '@/lib/api/axios';
 import axiosInstance from '@/lib/api/axios';
+import { useRouter } from "next/navigation";
 
 
 interface AssetMetadataProps {
@@ -76,6 +77,9 @@ export default function AssetMetadata({
  onImageUpdate
 }: AssetMetadataProps) {
  const { canEdit } = useAuth();
+ const router = useRouter();
+
+
 
 
  // State management for editing mode
@@ -355,17 +359,15 @@ export default function AssetMetadata({
      if (field.key && field.value) metadataObject[field.key] = field.value;
    });
    formData.append('metadata_json', JSON.stringify(metadataObject));
-
-
    if (newImageFile) {
      console.log("Uploading file:", newImageFile.name);
      formData.append('file', newImageFile); 
    } else {
-     console.log("⚠️ No newImageFile found");
+     console.log("No newImageFile found");
    }
 
 
-   console.log("🧾 FormData entries:");
+   console.log("FormData entries:");
    for (let pair of formData.entries()) console.log(pair[0], pair[1]);
 
 
@@ -375,8 +377,38 @@ export default function AssetMetadata({
        formData,
        { headers: { "Content-Type": "multipart/form-data" } }
      );
-     setSaveMessage({ type: 'success', message: 'Asset updated successfully!' });
+
+
+     const updatedAsset = res.data;
+     console.log("Save successful, updated asset:", updatedAsset);
+
+
+     if (onUpdateAsset) {
+       onUpdateAsset(updatedAsset);
+     }
+
+
      setNewImageFile(null);
+
+
+     if (onEditToggle) {
+       onEditToggle(false);
+     } else {
+       setInternalIsEditing(false);
+     }
+
+
+     if (onEditToggle) {
+       onEditToggle(false); 
+     } else {
+       setInternalIsEditing(false);
+     }
+
+
+     router.push(`/dashboard/assets/${asset.id}`);
+     console.log("Save successful, navigating back to asset page");
+
+
    } catch (err) {
      console.error(err);
      setSaveMessage({ type: 'error', message: 'Failed to update asset.' });
@@ -560,31 +592,25 @@ export default function AssetMetadata({
      <VStack gap={6} align="stretch">
 
 
-       {newImageFile && (
-         <Box p={3} bg="blue.50" borderRadius="md" border="1px solid" borderColor="blue.200">
-           <HStack justify="space-between">
-             <HStack>
-               <Text fontSize="sm" fontWeight="medium" color="blue.700">
-                 📎 {newImageFile.name}
-               </Text>
-               <Badge colorScheme="blue" fontSize="xs">
-                 {formatFileSize(newImageFile.size)}
-               </Badge>
-             </HStack>
-             <Text fontSize="xs" color="blue.600">
-               Ready to save
-             </Text>
-           </HStack>
-           <Text fontSize="xs" color="blue.600" mt={1}>
-             This file will be uploaded when you click the main Save button
-           </Text>
-         </Box>
-       )}
-
-
        {/* Change Image Button */}
        <Box>
          <Text fontSize="sm" fontWeight="medium" mb={2}>Update New File</Text>
+
+
+         {/* Show pending file status */}
+         {newImageFile && (
+           <Box p={1} mb={3} borderRadius="md" border="1px solid" borderColor="blue.300">
+             <HStack justify="space-between">
+               <HStack>
+                 <Text fontSize="sm" fontWeight="medium" color="blue.500">
+                   📂 : {newImageFile.name}
+                 </Text>
+               </HStack>
+             </HStack>
+           </Box>
+         )}
+
+
          <Button
            onClick={onImageModalOpen}
            bg="gray.100"
@@ -593,6 +619,7 @@ export default function AssetMetadata({
            size="sm"
            borderColor="gray.300"
            width="full"
+           _hover={{ bg: 'gray.300' }}
          >
            <ImageIcon style={{ marginRight: '8px' }} />
            Choose File
@@ -857,11 +884,11 @@ export default function AssetMetadata({
 
                  {/* Selected File Preview */}
                  {newImageFile && (
-                   <Box p={3} bg="green.50" borderRadius="md" border="1px solid" borderColor="green.200">
+                   <Box p={3} bg="gray.50" borderRadius="md" border="1px solid" borderColor="gray.100">
                      <HStack justify="space-between">
                        <HStack>
-                         <Text fontWeight="medium" color="green.700">{newImageFile.name}</Text>
-                         <Badge colorScheme="green">
+                         <Text fontWeight="medium" color="gray.700">{newImageFile.name}</Text>
+                         <Badge>
                            {formatFileSize(newImageFile.size)}
                          </Badge>
                        </HStack>
@@ -869,9 +896,6 @@ export default function AssetMetadata({
                          Remove
                        </Button>
                      </HStack>
-                     <Text fontSize="sm" color="green.600" mt={1}>
-                       File selected and ready for upload
-                     </Text>
                    </Box>
                  )}
                </VStack>
