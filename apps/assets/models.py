@@ -5,7 +5,7 @@ from django.core.validators import FileExtensionValidator
 from PIL import Image, ImageDraw
 from io import BytesIO
 from django.core.files.uploadedfile import InMemoryUploadedFile
-from io import BytesIO
+
 
 class Tag(models.Model):
     """Tags for categorizing assets"""
@@ -117,20 +117,26 @@ class Asset(models.Model):
         return f"{self.title} ({self.file_type})"
     
     def save(self, *args, **kwargs):
-        creating = self._state.adding 
+        creating = self._state.adding
+        old_file = None
+
+        if not creating and self.pk:
+            old_asset = Asset.objects.filter(pk=self.pk).first()
+            if old_asset:
+                old_file = old_asset.file
+
         if self.file:
             self.file_size = self.file.size
             self.file_extension = os.path.splitext(self.file.name)[1].lower()
-            if not self.file_type:
-                self.file_type = self._determine_file_type()
+            self.file_type = self._determine_file_type()
 
         super().save(*args, **kwargs)
 
-        if creating and not self.thumbnail:
+        if creating or (old_file and old_file != self.file):
             try:
                 self._generate_thumbnail()
                 super().save(update_fields=['thumbnail'])
-                print(f"Thumbnail generated for {self.file.name}")
+                print(f"Thumbnail regenerated for {self.file.name}")
             except Exception as e:
                 print(f"Failed to generate thumbnail after save: {e}")
     
@@ -165,7 +171,7 @@ class Asset(models.Model):
         except Exception as e:
             print(f"Error generating thumbnail for {self.file.name}: {e}")
             self._generate_generic_thumbnail()
-
+    
     def _generate_image_thumbnail(self):
         """Generate thumbnail for image files"""
         img = Image.open(self.file)
@@ -193,9 +199,6 @@ class Asset(models.Model):
         from PIL import Image
 
         try:
-            # 重置文件指针到开头
-            self.file.seek(0)
-            
             with tempfile.NamedTemporaryFile(suffix=self.file_extension, delete=False) as temp:
                 temp.write(self.file.read())
                 temp.flush()
@@ -327,8 +330,8 @@ class Asset(models.Model):
     @property
     def thumbnail_url(self):
         """Get thumbnail URL"""
-        return self.thumbnail.url if self.thumbnail else None        
-    
+        return self.thumbnail.url if self.thumbnail else None
+
     def _extract_technical_metadata(self):
         """Extract technical metadata"""
         try:
@@ -421,41 +424,6 @@ class Asset(models.Model):
         }
         return color_spaces.get(img.mode, img.mode)
     
-    @property
-    def file_url(self):
-        """Get file URL"""
-        return self.file.url if self.file else None
-    
-    @property
-    def thumbnail_url(self):
-        """Get thumbnail URL"""
-        return self.thumbnail.url if self.thumbnail else None
-    
-    @property
-    def duration(self):
-        """Get duration from technical metadata"""
-        return self.technical_metadata.get('duration', 'N/A')
-    
-    @property
-    def resolution(self):
-        """Get resolution from technical metadata"""
-        return self.technical_metadata.get('resolution', 'N/A')
-    
-    @property
-    def frame_rate(self):
-        """Get frame rate from technical metadata"""
-        return self.technical_metadata.get('frame_rate', 'N/A')
-    
-    @property
-    def bitrate(self):
-        """Get bitrate from technical metadata"""
-        return self.technical_metadata.get('bitrate', 'N/A')
-    
-    @property
-    def codec(self):
-        """Get codec from technical metadata"""
-        return self.technical_metadata.get('codec', 'N/A')
-
 
 class MetadataField(models.Model):
     """Custom metadata fields for assets"""
@@ -470,7 +438,7 @@ class MetadataField(models.Model):
     asset = models.ForeignKey(
         Asset,
         on_delete=models.CASCADE,
-        related_name='metadata'  
+        related_name='metadata'
     )
     
     key = models.CharField(max_length=100)
@@ -503,8 +471,14 @@ class AssetVersion(models.Model):
         related_name='versions'
     )
     
-    version = models.IntegerField()
+    #delete if error
+    version = models.IntegerField(default=0)
+
+    #version = models.IntegerField(default=0)
     file = models.FileField(upload_to='versions/%Y/%m/%d/')
+    title = models.CharField(max_length=255, blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    tags_json = models.JSONField(blank=True, null=True)
     
     changes = models.TextField(help_text='Description of changes made')
     
@@ -515,7 +489,6 @@ class AssetVersion(models.Model):
     )
     
     created_at = models.DateTimeField(auto_now_add=True)
-    file_url = models.CharField(max_length=500, blank=True, null=True) 
     
     class Meta:
         ordering = ['-version']
@@ -526,3 +499,7 @@ class AssetVersion(models.Model):
     def __str__(self):
         return f"{self.asset.title} - v{self.version}"
     
+    @property
+    def file_url(self):
+        """Get file URL"""
+        return self.file.url if self.file else None
