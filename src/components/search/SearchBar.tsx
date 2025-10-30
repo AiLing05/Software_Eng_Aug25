@@ -1,5 +1,3 @@
-//increase tag management and fix sorting function
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -150,11 +148,14 @@ export default function SearchBar({
 
     if (Array.isArray(allTags)) {
       tagsArray = allTags;
+      console.log('✅ Tags are array, count:', allTags.length);
     } else if (typeof allTags === 'object' && allTags !== null) {
+      console.log('🔄 Tags are object, keys:', Object.keys(allTags));
       const possibleArrayProperties = ['items', 'results', 'data', 'tags', 'list'];
       for (const prop of possibleArrayProperties) {
         if (Array.isArray(allTags[prop])) {
           tagsArray = allTags[prop];
+          console.log('✅ Found array in property:', prop, 'count:', tagsArray.length);
           break;
         }
       }
@@ -162,13 +163,18 @@ export default function SearchBar({
         const valuesArray = Object.values(allTags);
         if (valuesArray.length > 0 && Array.isArray(valuesArray[0])) {
           tagsArray = valuesArray[0];
+          console.log('✅ Found array in first value, count:', tagsArray.length);
         } else {
           tagsArray = Object.values(allTags).filter(item =>
             item && typeof item === 'object' && 'id' in item && 'name' in item
           );
+          console.log('✅ Filtered object values, count:', tagsArray.length);
         }
       }
     }
+
+    console.log('📊 Raw tagsArray:', tagsArray);
+    console.log('📊 tagsArray count:', tagsArray.length);
 
     const sortedOnce = tagsArray
       .map(tag => ({
@@ -191,6 +197,14 @@ export default function SearchBar({
 
   const [visibleCount, setVisibleCount] = useState(10);
   const INCREMENT = 10;
+
+  const handleShowMore = () => {
+    setVisibleCount(prev => Math.min(prev + INCREMENT, availableTags.length));
+  };
+
+  const handleShowLess = () => {
+    setVisibleCount(10);
+  };
 
   //到这里！！！！！！
 
@@ -226,10 +240,10 @@ export default function SearchBar({
 
   // Sort options to what the API expects using the actual date field
   const getSortParameter = (sortOption: string) => {
-    if (sortOption === 'newest') return -${dateField};  // Newest first (descending)
+    if (sortOption === 'newest') return `-${dateField}`;  // Newest first (descending)
     if (sortOption === 'oldest') return dateField;        // Oldest first (ascending)
     
-    return -${dateField}; // default to newest first
+    return `-${dateField}`; // default to newest first
   };
 
   // Debounce effect
@@ -259,7 +273,7 @@ export default function SearchBar({
     searchParams.ordering = apiSortParam;   
     
     console.log('🔍 Executing search with params:', searchParams);
-    console.log('🏷 Selected tags:', selectedTags);
+    console.log('🏷️ Selected tags:', selectedTags);
     console.log('📤 Tags being sent to API:', searchParams.tags);
     
     dispatch(searchAssets(searchParams));
@@ -268,7 +282,7 @@ export default function SearchBar({
   // Effect to trigger search when dependencies change
   useEffect(() => {
     console.log('🔄 Filter change detected - triggering search');
-    console.log('🏷 Selected tags in effect:', selectedTags);
+    console.log('🏷️ Selected tags in effect:', selectedTags);
     
     executeSearch();
   }, [debouncedTerm, fileType, selectedTags, dateFrom, dateTo]);
@@ -349,7 +363,7 @@ export default function SearchBar({
   };
 
   const handleResetFilters = () => {
-    console.log('🗑 Resetting all filters');
+    console.log('🗑️ Resetting all filters');
     setFileType('');
     setSelectedTags([]);
     setDateFrom('');
@@ -357,7 +371,7 @@ export default function SearchBar({
   };
 
   const clearAllTags = () => {
-    console.log('🗑 Clearing all tags');
+    console.log('🗑️ Clearing all tags');
     setSelectedTags([]);
   };
 
@@ -611,39 +625,28 @@ export default function SearchBar({
 
                     {/* ✅ Show More / Show Less 按钮 */}
                     {availableTags.length > 10 && (
-                      <Box 
-                        as="button"
-                        bg="gray.100"
-                        color="blue.600"
-                        borderRadius="full"
-                        px={3}
-                        py={1}
+                      <Text 
+                        as="span"
+                        color="blue.500"
                         fontSize="xs"
-                        fontWeight="bold"
                         cursor="pointer"
-                        onClick={() => {
-                          if (visibleCount >= availableTags.length) {
-                            setVisibleCount(10);
-                          } else {
-                            setVisibleCount(prev => Math.min(prev + INCREMENT, availableTags.length));
-                          }
-                        }}
+                        onClick={visibleCount >= availableTags.length ? handleShowLess : handleShowMore}
                         _hover={{
-                          bg: "gray.200"
+                          color: "blue.600"
                         }}
+                        ml={2}
+                        alignSelf="center" 
+                        lineHeight="1.2"   
                       >
-                        <Text>
-                          
-                        </Text>
                         {visibleCount >= availableTags.length ? 'Show Less' : 'Show More'}
-                      </Box>
+                      </Text>
                     )}
                   </>
                 ) : (
 
                     !tagsLoading && (
                       <Text fontSize="sm" color="blue.500" textAlign="center" width="100%">
-                        {tagsError ? Error: ${tagsError} : 'No tags available'}
+                        {tagsError ? `Error: ${tagsError}` : 'No tags available'}
                       </Text>
                     )
                   )}
@@ -651,7 +654,7 @@ export default function SearchBar({
 
               {/* Status - Compact */}
               <Text fontSize="sm" color="gray.600" textAlign="center">
-                {loading ? 'Searching...' : ${uniqueAssetsCount} assets found}
+                {loading ? 'Searching...' : `${uniqueAssetsCount} assets found`}
               </Text>
             </VStack>
           </Box>
